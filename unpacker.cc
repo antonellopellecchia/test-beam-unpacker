@@ -133,9 +133,9 @@ class GEMUnpacker {
           
           oh = m_gebdata->InputID();
           
-          // if (verbose) {
-          //     std::cout << "        " << "slot\toh\tvfat\tBC\tEC\teta\tchamber\tcrc\tdata" << std::endl;
-          // }
+          if (verbose) {
+            std::cout << "        " << "slot\toh\tvfat\tBC\tEC\teta\tchamber\tcrc\tdata" << std::endl;
+          }
           for (unsigned short k = 0; k < m_nvb; k++) {
             VFATdata * m_vfatdata = new VFATdata();
             // read 3 vfat block words, totaly 192 bits
