@@ -52,6 +52,7 @@ def main():
     parser.add_argument("chamber", type=int, help="Chamber number")
     parser.add_argument("bins", type=int, help="Number of bins")
     parser.add_argument("-n", "--events", type=int, default=-1, help="Number of events to analyse")
+    parser.add_argument("--start", type=int, default=0, help="First event to analyse")
     parser.add_argument("-v", "--verbose", action="store_true", help="Activate logging")
     args = parser.parse_args()
     
@@ -62,8 +63,8 @@ def main():
         if args.verbose: track_tree.show()
 
         print("Reading tree...")
-        track_x_chi2 = track_tree["trackChi2X"].array(entry_stop=args.events)
-        track_y_chi2 = track_tree["trackChi2Y"].array(entry_stop=args.events)
+        track_x_chi2 = track_tree["trackChi2X"].array(entry_start=args.start,entry_stop=args.start+args.events)
+        track_y_chi2 = track_tree["trackChi2Y"].array(entry_start=args.start,entry_stop=args.start+args.events)
         chi2_fig, chi2_axs = plt.subplots(nrows=2, ncols=1, figsize=(10,9*2))
         chi2_axs[0].hist(track_x_chi2, range=(0.00001,30), bins=500, alpha=0.4)
         chi2_axs[0].hist(track_x_chi2[track_x_chi2<2], range=(0.00001,30), bins=500, alpha=0.4)
@@ -76,14 +77,17 @@ def main():
         chi2_fig.savefig(args.odir/"chi2.png")
 
         if args.detector=="ge21":
-            rechit_chamber = track_tree["rechitChamber"].array(entry_stop=args.events)
-            prophit_chamber = track_tree["prophitChamber"].array(entry_stop=args.events)
-            #rechits_eta = track_tree["rechitEta"].array(entry_stop=args.events)
-            #prophits_eta = ak.flatten(track_tree["prophitEta"].array(entry_stop=args.events))
-            rechits_x = track_tree["rechitLocalX"].array(entry_stop=args.events)
-            rechits_y = track_tree["rechitLocalY"].array(entry_stop=args.events)
-            prophits_x = track_tree["prophitLocalX"].array(entry_stop=args.events)
-            prophits_y = track_tree["prophitLocalY"].array(entry_stop=args.events)
+            rechit_chamber = track_tree["rechitChamber"].array(entry_start=args.start,entry_stop=args.start+args.events)
+            prophit_chamber = track_tree["prophitChamber"].array(entry_start=args.start,entry_stop=args.start+args.events)
+            #rechits_eta = track_tree["rechitEta"].array(entry_start=args.start,entry_stop=args.start+args.events)
+            #prophits_eta = ak.flatten(track_tree["prophitEta"].array(entry_start=args.start,entry_stop=args.start+args.events))
+            rechits_x = track_tree["rechitLocalX"].array(entry_start=args.start,entry_stop=args.start+args.events)
+            rechits_y = track_tree["rechitLocalY"].array(entry_start=args.start,entry_stop=args.start+args.events)
+            prophits_x = track_tree["prophitGlobalX"].array(entry_start=args.start,entry_stop=args.start+args.events)
+            prophits_y = track_tree["prophitGlobalY"].array(entry_start=args.start,entry_stop=args.start+args.events)
+            
+            """ HACK FOR FITTING: swap x and y """
+            prophits_x, prophits_y = prophits_y, prophits_x
 
             mask_chi2 = (track_x_chi2>0.1)&(track_x_chi2<2)&(track_y_chi2>0.1)&(track_y_chi2<2)
             rechit_chamber = rechit_chamber[mask_chi2]
@@ -178,13 +182,12 @@ def main():
             m, s, k = params[0:4], params[4:8], params[8:12]
             err_m, err_s, err_k = perr[0:4], perr[4:8], perr[8:12]
             print("means", m, "\nsigma", s, "\nconstant", k)
-            for i in range(4):
+            """for i in range(4):
                 eff_ax.text(
                     m[i], fit_function(m[i], *params)-0.1,
                     f"$\sigma$ = {s[i]*1e3:1.0f} $\pm$ {err_s[i]*1e3:1.0f} µm", size=15, rotation=30, ha="center"
                 )
-                #eff_ax.text(m[i]-7, 1-2.2*k[i], f"$\sigma$ = {s[i]*1e3:1.1f} µm", size=15)
-
+                #eff_ax.text(m[i]-7, 1-2.2*k[i], f"$\sigma$ = {s[i]*1e3:1.1f} µm", size=15)"""
             below_97 = efficiency_interp[efficiency_interp<0.97]
             below_97_x = x[efficiency_interp<0.97]
             print(below_97)
@@ -197,14 +200,13 @@ def main():
             print(below_97_widths)
             #eff_ax.plot(x, 0.97+np.zeros(x.size), "-.", color="blue")
             #eff_ax.plot(x, average_efficiency+np.zeros(x.size), "-.", color="blue")
-            for i in range(4):
+            """for i in range(4):
                 eff_ax.text(
                     m[i]-1, fit_function(m[i], *params)-0.25,
                     #f"{below_97_widths[i]*1e3:1.1f} µm at 97%",
                     " ",
                     size=15, rotation=60
-                )
-
+                )"""
             eff_ax.set_xlabel("Extrapolated y (mm)")
             eff_ax.set_ylabel("Efficiency")
             eff_ax.set_title(
@@ -269,14 +271,14 @@ def main():
             
 
         if args.detector=="me0":
-            rechit_chamber = track_tree["rechitChamber"].array(entry_stop=args.events)
-            prophit_chamber = track_tree["prophitChamber"].array(entry_stop=args.events)
-            #rechits_eta = track_tree["rechitEta"].array(entry_stop=args.events)
-            #prophits_eta = ak.flatten(track_tree["prophitEta"].array(entry_stop=args.events))
-            rechits_x = track_tree["rechitLocalX"].array(entry_stop=args.events)
-            rechits_y = track_tree["rechitLocalY"].array(entry_stop=args.events)
-            prophits_x = track_tree["prophitLocalX"].array(entry_stop=args.events)
-            prophits_y = track_tree["prophitLocalY"].array(entry_stop=args.events)
+            rechit_chamber = track_tree["rechitChamber"].array(entry_start=args.start,entry_stop=args.start+args.events)
+            prophit_chamber = track_tree["prophitChamber"].array(entry_start=args.start,entry_stop=args.start+args.events)
+            #rechits_eta = track_tree["rechitEta"].array(entry_start=args.start,entry_stop=args.start+args.events)
+            #prophits_eta = ak.flatten(track_tree["prophitEta"].array(entry_start=args.start,entry_stop=args.start+args.events))
+            rechits_x = track_tree["rechitLocalX"].array(entry_start=args.start,entry_stop=args.start+args.events)
+            rechits_y = track_tree["rechitLocalY"].array(entry_start=args.start,entry_stop=args.start+args.events)
+            prophits_x = track_tree["prophitLocalX"].array(entry_start=args.start,entry_stop=args.start+args.events)
+            prophits_y = track_tree["prophitLocalY"].array(entry_start=args.start,entry_stop=args.start+args.events)
 
             mask_chi2 = (track_x_chi2>0.1)&(track_x_chi2<2)&(track_y_chi2>0.1)&(track_y_chi2<2)
             rechit_chamber = rechit_chamber[mask_chi2]
@@ -442,14 +444,14 @@ def main():
 
 
         if args.detector=="20x10":
-            rechit_chamber = track_tree["rechitChamber"].array(entry_stop=args.events)
-            prophit_chamber = track_tree["prophitChamber"].array(entry_stop=args.events)
-            # rechits_eta = track_tree["rechitEta"].array(entry_stop=args.events)
-            # prophits_eta = ak.flatten(track_tree["prophitEta"].array(entry_stop=args.events))
-            rechits_x = track_tree["rechitLocalX"].array(entry_stop=args.events)
-            rechits_y = track_tree["rechitLocalY"].array(entry_stop=args.events)
-            prophits_x = track_tree["prophitLocalX"].array(entry_stop=args.events)
-            prophits_y = track_tree["prophitLocalY"].array(entry_stop=args.events)
+            rechit_chamber = track_tree["rechitChamber"].array(entry_start=args.start,entry_stop=args.start+args.events)
+            prophit_chamber = track_tree["prophitChamber"].array(entry_start=args.start,entry_stop=args.start+args.events)
+            # rechits_eta = track_tree["rechitEta"].array(entry_start=args.start,entry_stop=args.start+args.events)
+            # prophits_eta = ak.flatten(track_tree["prophitEta"].array(entry_start=args.start,entry_stop=args.start+args.events))
+            rechits_x = track_tree["rechitLocalX"].array(entry_start=args.start,entry_stop=args.start+args.events)
+            rechits_y = track_tree["rechitLocalY"].array(entry_start=args.start,entry_stop=args.start+args.events)
+            prophits_x = track_tree["prophitLocalX"].array(entry_start=args.start,entry_stop=args.start+args.events)
+            prophits_y = track_tree["prophitLocalY"].array(entry_start=args.start,entry_stop=args.start+args.events)
 
             mask_chi2 = (track_x_chi2>0.1)&(track_x_chi2<2)&(track_y_chi2>0.1)&(track_y_chi2<2)
             rechit_chamber = rechit_chamber[mask_chi2]
@@ -612,11 +614,11 @@ def main():
             eff_fig.savefig(os.path.join(args.odir, "20x10_1d.png"))
 
         elif args.detector=="tracker":
-            rechits_chamber = track_tree["rechits2D_Chamber"].array(entry_stop=args.events)
-            rechits_x = track_tree["rechits2D_X"].array(entry_stop=args.events)
-            rechits_y = track_tree["rechits2D_Y"].array(entry_stop=args.events)
-            prophits_x = track_tree["prophits2D_X"].array(entry_stop=args.events)
-            prophits_y = track_tree["prophits2D_Y"].array(entry_stop=args.events)
+            rechits_chamber = track_tree["rechits2D_Chamber"].array(entry_start=args.start,entry_stop=args.start+args.events)
+            rechits_x = track_tree["rechits2D_X"].array(entry_start=args.start,entry_stop=args.start+args.events)
+            rechits_y = track_tree["rechits2D_Y"].array(entry_start=args.start,entry_stop=args.start+args.events)
+            prophits_x = track_tree["prophits2D_X"].array(entry_start=args.start,entry_stop=args.start+args.events)
+            prophits_y = track_tree["prophits2D_Y"].array(entry_start=args.start,entry_stop=args.start+args.events)
 
             print("chambers", rechits_chamber)
             print("prophits", prophits_x)
