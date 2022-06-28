@@ -5,6 +5,9 @@
 #include <array>
 #include <utility>
 #include <bitset>
+
+#include <zstd.h>
+
 //#include "GEMAMC13EventFormat.h"
 #include <TFile.h>
 #include <TTree.h>
@@ -386,10 +389,9 @@ int main (int argc, char** argv) {
   if (verbose) {
       for (auto stripMapping:stripMappings) {
           std::cout << "Chamber " << stripMapping.first << std::endl;
-          stripMapping.second->print();
+          //stripMapping.second->print();
       }
-
-      chamberMapping.print();
+      //chamberMapping.print();
   }
 
   GEMUnpacker * m_unpacker = new GEMUnpacker(ifiles, isFedKit, ofile);
