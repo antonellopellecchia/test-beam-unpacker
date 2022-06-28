@@ -7,6 +7,7 @@ project(unpacker)
 find_package(ROOT REQUIRED Minuit2)
 include(${ROOT_USE_FILE})
 
+include_directories($ENV{ZSTD_INSTALL}/include)
 include_directories($ENV{ANALYSIS_HOME}/include)
 
 set(sources
@@ -44,6 +45,11 @@ set(header $ENV{ANALYSIS_HOME}/include/*.h)
 #
 add_executable(RawToDigi unpacker.cc ${sources} ${headers})
 target_link_libraries(RawToDigi ${ROOT_LIBRARIES})
+target_link_libraries(RawToDigi $ENV{ZSTD_INSTALL}/lib64/libzstd.so)
+
+add_executable(debug/decompression debug/decompression.cc ${sources} ${headers})
+target_link_libraries(debug/decompression ${ROOT_LIBRARIES})
+target_link_libraries(debug/decompression $ENV{ZSTD_INSTALL}/lib64/libzstd.so)
 
 add_executable(DigiToRechits DigiToRechits.cc ${sources} ${headers})
 target_link_libraries(DigiToRechits ${ROOT_LIBRARIES})
