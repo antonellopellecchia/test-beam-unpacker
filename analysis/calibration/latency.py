@@ -8,6 +8,7 @@ import awkward as ak
 import uproot
 
 from matplotlib import pyplot as plt
+from matplotlib import colors
 import mplhep as hep
 plt.style.use(hep.style.ROOT)
 
@@ -84,6 +85,7 @@ def main():
             strips_latency = strips[latency==fixed_latency]
             
             for oh in np.unique(ak.flatten(ohs)):
+                
                 vfats_oh = vfat_latency[oh_latency==oh]
                 strips_oh = strips_latency[oh_latency==oh]
                 for vfat in np.unique(ak.flatten(vfats_oh)):

@@ -163,7 +163,6 @@ def main():
                 #if eta>3: break
                 occupancy_ax = occupancy_axs[ieta]
                 occupancy_ax.set_xlabel("Strip")
-                
                 eta_filter = digi_eta==eta
                 filtered_strips = ak.flatten(digi_strip[(chamber_filter)&(eta_filter)])
                 filtered_oh = ak.flatten(digi_oh[(chamber_filter)&(eta_filter)])

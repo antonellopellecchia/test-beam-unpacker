@@ -12,13 +12,6 @@
 
 StripMapping::StripMapping(std::string mappingFilePath) {
 	DataFrame mappingDataFrame = DataFrame::fromCsv(mappingFilePath);
-
-    // populate mapping with zeros
-    /*for (int i=0; i<24; i++) {
-		for (int j=0; j<128; j++)
-            to_strip[i][j] = 0;
-	}*/
-
 	int vfatId, vfatChannel, eta, strip;
 
 	// iterate on rows:

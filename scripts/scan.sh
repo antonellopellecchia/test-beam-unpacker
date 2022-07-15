@@ -22,7 +22,7 @@ for run in ${runs[@]}; do
     echo "# Skipping finding noisy channels"
     #python3 analysis/occupancy.py $RUN_DIR/digi/$run.root $OUT_DIR/$run/occupancy --verbose --events 100000 --find-noisy /home/gempro/testbeam/spring2022/runs/masks/$run.csv
     echo "# Calculating efficiency and plotting occupancy"
-    python3 analysis/occupancy.py $RUN_DIR/digi/$run.root $OUT_DIR/$run/occupancy --verbose --events 100000 --mask-noisy /home/gempro/testbeam/spring2022/runs/masks/00000079.csv --efficiency $RUN_DIR/efficiency/${run}_oh.csv $RUN_DIR/efficiency/${run}_chamber.csv
+    python3 analysis/occupancy.py $RUN_DIR/digi/$run.root $OUT_DIR/$run/occupancy --verbose --events 100000 --mask-noisy /home/gempro/testbeam/july2022/runs/masks/00000079.csv --efficiency $RUN_DIR/efficiency/${run}_oh.csv $RUN_DIR/efficiency/${run}_chamber.csv
     echo "####################"
     echo ""
     echo ""

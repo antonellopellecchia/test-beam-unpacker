@@ -15,7 +15,7 @@
 
 class GEMUnpacker {
   public:
-    GEMUnpacker(const std::vector<std::string> ifilenames, const std::string isFedKit, const std::string _ofilename) {
+    GEMUnpacker(const std::vector<std::string> ifilenames, const std::string isFedKit, const std::string _ofilename, const int _every) {
       try {
         for (auto ifilename:ifilenames)
           m_files.push_back(std::fopen(ifilename.c_str(), "rb"));
@@ -24,6 +24,7 @@ class GEMUnpacker {
       }
       ofilename = _ofilename;
       m_isFedKit = isFedKit;
+      every = _every;
     }
 
     ~GEMUnpacker() {
@@ -115,7 +116,7 @@ class GEMUnpacker {
       }
 
       //printf("GEM EVENT HEADER\n");
-      //printf("%016llX\n", m_word);
+      //printf("%013llX\n", m_word);
       // fill the geb data here
       //std::cout << "GDcount = " << m_amcEvent->GDcount() << std::endl;
       for (unsigned short j = 0; j < m_amcEvent->GDcount(); j++) {
@@ -134,7 +135,7 @@ class GEMUnpacker {
           oh = m_gebdata->InputID();
           
           if (verbose) {
-            std::cout << "        " << "slot\toh\tvfat\tBC\tEC\teta\tchamber\tcrc\tdata" << std::endl;
+              std::cout << "        " << "slot\toh\tvfat\tBC\tEC\teta\tchamber\tcrc\tdata" << std::endl;
           }
           for (unsigned short k = 0; k < m_nvb; k++) {
             VFATdata * m_vfatdata = new VFATdata();
@@ -159,6 +160,14 @@ class GEMUnpacker {
             m_vfatdata->read_tw(m_word);
 
             vfatId = m_vfatdata->Pos();
+
+            crc = m_vfatdata->CRCcheck();
+            if (crc>0) {
+                if (verbose) {
+                    std::cout << "\tCRC error " << crc << " in VFAT " << vfatId << ", skipping..." << std::endl;
+                }
+                continue;
+            }
 
             chamber = chamberMapping->to_chamber[slot][oh][vfatId];
             //if (stripMappings.count(chamber)==0) return 0;
@@ -279,7 +288,11 @@ class GEMUnpacker {
           std::cout << "Found mismatching L1As in event " << n_evt << ", stopping..." << std::endl;
           break;
         }
-        outputtree.Fill();
+
+        if (every==0 || n_evt%every==0) { // save only every n events
+            outputtree.Fill();
+            //std::cout << std::endl << "Saving event " << n_evt << ": n_evt/every = " << n_evt%every << std::endl;
+        }
         n_evt++; 
       }
       std::cout << std::endl;
@@ -314,6 +327,7 @@ private:
     int strip = 0;
     int chamber = 0;
     int direction = 0;
+    int crc = 0;
 
     /* raw data variables: */
     std::vector<std::FILE *> m_files;
@@ -326,6 +340,7 @@ private:
     AMCEvent * m_AMCEvent;
     std::string ofilename;
     std::string m_isFedKit;
+    int every; // events to skip
 
     std::map<int, StripMapping*> stripMappings;
     ChamberMapping *chamberMapping;
@@ -336,7 +351,7 @@ int main (int argc, char** argv) {
   std::cout << "Running GEM unpacker..." << std::endl;
   if (argc<3) 
   {
-    std::cout << "Usage: RawToDigi ifile(s) ofile [--events max_events] [--geometry geometryname] [--format ferol/sdram] [--verbose] [--check-sync]" << std::endl;
+    std::cout << "Usage: RawToDigi ifile(s) ofile [--events max_events] [--geometry geometryname] [--format ferol/sdram] [--verbose] [--check-sync] --every [events]" << std::endl;
     return 0;
   }
   std::vector<std::string> ifiles;
@@ -344,6 +359,7 @@ int main (int argc, char** argv) {
   std::string isFedKit = "ferol";
   
   int max_events = -1;
+  int every = 0;
   std::string geometry = "oct2021";
   bool verbose = false;
   bool checkSyncronization = false;
@@ -356,6 +372,8 @@ int main (int argc, char** argv) {
       else if (arg=="--check-sync") checkSyncronization = true;
       else if (arg=="--events") max_events = atoi(argv[iarg+1]);
       else if (arg=="--geometry") geometry = argv[iarg+1];
+      else if (arg=="--every") every = atoi(argv[iarg+1]);
+      std::cout << "every " << every << std::endl;
     } else if (isUnnamed) { // unnamed parameters
       if (iarg+1==argc || argv[iarg+1][0]=='-') ofile = arg;
       else ifiles.push_back(arg);
@@ -392,7 +410,7 @@ int main (int argc, char** argv) {
       chamberMapping.print();
   }
 
-  GEMUnpacker * m_unpacker = new GEMUnpacker(ifiles, isFedKit, ofile);
+  GEMUnpacker * m_unpacker = new GEMUnpacker(ifiles, isFedKit, ofile, every);
   m_unpacker->setParameters(verbose, checkSyncronization);
   int unpackerStatus = m_unpacker->unpack(max_events, stripMappings, &chamberMapping);
   delete m_unpacker;
