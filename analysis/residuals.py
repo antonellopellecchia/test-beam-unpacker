@@ -14,6 +14,7 @@ mpl.use("Agg")
 import matplotlib.pyplot as plt
 import mplhep as hep
 plt.style.use(hep.style.ROOT)
+plt.rcParams.update({'font.size': 32})
 
 hep.cms.label()#, data=<True|False>, lumi=50, year=2017)
 

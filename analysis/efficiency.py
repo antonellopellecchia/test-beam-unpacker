@@ -16,6 +16,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import mplhep as hep
 plt.style.use(hep.style.ROOT)
+plt.rcParams.update({'font.size': 32})
 
 # enable multi-threading:
 from concurrent.futures import ThreadPoolExecutor
@@ -141,14 +142,15 @@ def main():
             eff_ax.set_ylabel("Extrapolated y (mm)")
             eff_ax.set_title(
                 r"$\bf{CMS}\,\,\it{Preliminary}$",
-                color="black", weight="normal", loc="left"
+                color="black", weight="normal", loc="left", size=28
             )
             eff_fig.colorbar(img, ax=eff_ax, label="Efficiency")
             img.set_clim(.85, 1.)
             eff_fig.tight_layout()
-            eff_ax.text(1.0, 1.01, "GE2/1 H4 test beam", transform=eff_ax.transAxes, ha="right", weight="bold")
+            eff_ax.text(1.0, 1.01, "GE2/1 H4 test beam", transform=eff_ax.transAxes, ha="right", weight="bold", size=28)
             print("Saving result...")
             eff_fig.savefig(os.path.join(args.odir, "ge21.png"))
+            eff_fig.savefig(os.path.join(args.odir, "ge21.pdf"))
 
             
             """ Plot efficiency profile in 1D vs y position """
@@ -211,9 +213,9 @@ def main():
             eff_ax.set_ylabel("Efficiency")
             eff_ax.set_title(
                 r"$\bf{CMS}\,\,\it{Preliminary}$",
-                color='black', weight='normal', loc="left"
+                color='black', weight='normal', loc="left", size=28
             )
-            eff_ax.text(1., 1., "GE2/1 H4 test beam", transform=eff_ax.transAxes, ha="right", va="bottom", weight="bold")
+            eff_ax.text(1., 1., "GE2/1 H4 test beam", transform=eff_ax.transAxes, ha="right", va="bottom", weight="bold", size=28)
             eff_fig.tight_layout()
             print("Saving result...")
             eff_fig.savefig(os.path.join(args.odir, "ge21_1d.png"))
@@ -340,7 +342,7 @@ def main():
             eff_ax.set_ylabel("Extrapolated y (mm)")
             eff_ax.set_title(
                 r"$\bf{CMS}\,\,\it{Preliminary}$",
-                color='black', weight='normal', loc="left"
+                color='black', weight='normal', loc="left", size=28
             )
             # cax = eff_fig.add_axes([
             #     eff_ax.get_position().x1+0.01,
@@ -350,9 +352,10 @@ def main():
             eff_fig.colorbar(img, ax=eff_ax, label="Efficiency")
             img.set_clim(.85, 1.)
             eff_fig.tight_layout()
-            eff_ax.text(1., 1., "ME0 H4 test beam", transform=eff_ax.transAxes, ha="right", va="bottom", weight="bold")
+            eff_ax.text(1., 1., "ME0 H4 test beam", transform=eff_ax.transAxes, ha="right", va="bottom", weight="bold", size=28)
             print("Saving result...")
             eff_fig.savefig(os.path.join(args.odir, "me0.png"))
+            eff_fig.savefig(os.path.join(args.odir, "me0.pdf"))
 
             
             """ Plot 1D efficiency profile vs y """
@@ -404,11 +407,12 @@ def main():
                 err_m, err_s, err_k = perr[0:8], perr[8:16], perr[16:24]
                 print("means", m, "\nsigma", s, "\nconstant", k)
                 #slices_axs.plot(x, average_efficiency+np.zeros(x.size), ".-", color="blue")
+                slice_sigmas, slice_sigma_errs = list(), list()
                 for i in range(8):
-                    slices_axs.text(
-                        m[i], fit_function(m[i], *params)-0.1,
-                        f"$\sigma$ = {s[i]*1e3:1.0f} $\pm$ {err_s[i]*1e3:1.0f} µm", size=14, rotation=30, ha="center"
-                    )
+                    #slices_axs.text(
+                    #    m[i], fit_function(m[i], *params)-0.1,
+                    #    f"$\sigma$ = {s[i]*1e3:1.0f} $\pm$ {err_s[i]*1e3:1.0f} µm", size=14, rotation=30, ha="center"
+                    #)
                     width_97 = 4*s[i]
                     #width_97 = 2 * s[i] * np.sqrt( -2 * np.log(0.3 * s[i] * np.sqrt(2*np.pi)/k[i]) )
                     # slices_axs[i_slice].plot(m[i]-0.5*width_97, fit_function(m[i]-0.5*width_97, *params), "o", markersize=5, color="blue")
@@ -420,6 +424,12 @@ def main():
                         size=14, rotation=60, color="blue"
                     )
 
+                s_mean = sum(s)/len(s)
+                err_s_mean = sum(err_s)/len(err_s)
+                m_mean, k_mean = sum(m)/len(m), sum(k)/len(k)
+                print(f"Mean m {m_mean}, mean k {1-1.2*k_mean}, mean s {s_mean}")
+                slices_axs.text(m_mean, 1-2.7*k_mean, f"average dip $\sigma$ = {s_mean*1e3:1.0f} $\pm$ {err_s_mean*1e3:1.0f} µm", size=32, ha="center")
+                
                 # below_97 = efficiency_interp[efficiency_interp<0.97]
                 # below_97_x = x[efficiency_interp<0.97]
                 # print(below_97)
@@ -439,8 +449,10 @@ def main():
                 hep.cms.text(text="Preliminary", ax=slices_axs)
                 #slices_axs[i_slice].set_title(f"y = {slice_y:1.2f} mm")
                 slices_fig.savefig(os.path.join(args.odir, f"me0_slices_{i_slice}.png"))
+                slices_fig.savefig(os.path.join(args.odir, f"me0_slices_{i_slice}.pdf"))
             slices_fig.tight_layout()
             slices_fig.savefig(os.path.join(args.odir, "me0_slices.png"))
+            slices_fig.savefig(os.path.join(args.odir, "me0_slices.pdf"))
 
 
         if args.detector=="20x10":
@@ -510,14 +522,15 @@ def main():
             eff_ax.set_ylabel("Extrapolated y (mm)")
             eff_ax.set_title(
                 r"$\bf{CMS}\,\,\it{Preliminary}$",
-                color='black', weight='normal', loc="left"
+                color='black', weight='normal', loc="left", size=28
             )
             eff_fig.colorbar(img, ax=eff_ax, label="Efficiency")
             img.set_clim(.85, 1.)
             eff_fig.tight_layout()
-            eff_ax.text(1., 1., "$20\\times 10\,cm^2$", transform=eff_ax.transAxes, ha="right", va="bottom", weight="bold")
+            eff_ax.text(1., 1., "$20\\times 10\,cm^2$", transform=eff_ax.transAxes, ha="right", va="bottom", weight="bold", size=28)
             print("Saving result...")
             eff_fig.savefig(os.path.join(args.odir, "20x10.png"))
+            eff_fig.savefig(os.path.join(args.odir, "20x10.pdf"))
 
             
             """ Calculate angular alignment based on HV sectors """
@@ -600,18 +613,19 @@ def main():
             m, s, k = params
             err_m, err_s, err_k = perr
             print("mean", m, "\nsigma", s, "\nconstant", k)
-            eff_ax.text(m, 1-1.2*k, f"$\sigma$ = {s*1e3:1.0f} $\pm$ {err_s*1e3:1.0f} µm", size=15, ha="center")
+            eff_ax.text(m, 1-1.2*k, f"$\sigma$ = {s*1e3:1.0f} $\pm$ {err_s*1e3:1.0f} µm", size=32, ha="center")
 
             eff_ax.set_xlabel("Extrapolated x (mm)")
             eff_ax.set_ylabel("Efficiency")
             eff_ax.set_title(
                 r"$\bf{CMS}\,\,\it{Preliminary}$",
-                color='black', weight='normal', loc="left"
+                color='black', weight='normal', loc="left", size=28
             )
-            eff_ax.text(1., 1., "$20\\times 10\,cm^2$ H4 test beam", transform=eff_ax.transAxes, ha="right", va="bottom", weight="bold")
+            eff_ax.text(1., 1., "$20\\times 10\,cm^2$ H4 test beam", transform=eff_ax.transAxes, ha="right", va="bottom", weight="bold", size=28)
             eff_fig.tight_layout()
             print("Saving result...")
             eff_fig.savefig(os.path.join(args.odir, "20x10_1d.png"))
+            eff_fig.savefig(os.path.join(args.odir, "20x10_1d.pdf"))
 
         elif args.detector=="tracker":
             rechits_chamber = track_tree["rechits2D_Chamber"].array(entry_start=args.start,entry_stop=args.start+args.events)
