@@ -12,8 +12,8 @@
 
 StripMapping::StripMapping(std::string mappingFilePath) {
 	DataFrame mappingDataFrame = DataFrame::fromCsv(mappingFilePath);
-
 	int vfatId, vfatChannel, eta, strip;
+
 	// iterate on rows:
 	for (int irow=0; irow<mappingDataFrame.getNRows(); irow++) {
 		// unused: oh = std::stoi(mappingRow[columnIndex["oh"]]);
@@ -22,7 +22,6 @@ StripMapping::StripMapping(std::string mappingFilePath) {
 		vfatChannel = std::stoi(mappingDataFrame.getElement("vfatCh", irow));
 		eta = std::stoi(mappingDataFrame.getElement("iEta", irow));
 		strip = std::stoi(mappingDataFrame.getElement("strip", irow));
-
 		to_eta[vfatId] = eta;
 		to_strip[vfatId][vfatChannel] = strip;
 	}

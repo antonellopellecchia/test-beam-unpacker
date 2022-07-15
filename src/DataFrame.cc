@@ -22,7 +22,7 @@ DataFrame DataFrame::fromCsv(std::string path) {
 
 	std::vector<std::string> colNames;
 	std::map<std::string, std::vector<std::string>> elements;
-
+    
 	if (!csvFile.is_open())
 		throw std::invalid_argument("Could not open file "+path);
 	for (int lineIndex=0; getline(csvFile, csvLine); lineIndex++) {

@@ -74,15 +74,22 @@ configure_file(mapping/may2022/ge21_mapping.csv mapping/may2022/ge21_mapping.csv
 configure_file(mapping/may2022/me0_mapping.csv mapping/may2022/me0_mapping.csv COPYONLY)
 configure_file(mapping/may2022/chamber_mapping.csv mapping/may2022/chamber_mapping.csv COPYONLY)
 
+configure_file(mapping/may2022Frengo/tracker_mapping.csv mapping/may2022Frengo/tracker_mapping.csv COPYONLY)
+configure_file(mapping/may2022Frengo/ge21_mapping.csv mapping/may2022Frengo/ge21_mapping.csv COPYONLY)
+configure_file(mapping/may2022Frengo/me0_mapping.csv mapping/may2022Frengo/me0_mapping.csv COPYONLY)
+configure_file(mapping/may2022Frengo/chamber_mapping.csv mapping/may2022Frengo/chamber_mapping.csv COPYONLY)
+
 configure_file(analysis/residuals.py analysis/residuals.py COPYONLY)
 configure_file(analysis/occupancy.py analysis/occupancy.py COPYONLY)
 configure_file(analysis/ge21.py analysis/ge21.py COPYONLY)
 configure_file(analysis/horns.py analysis/horns.py COPYONLY)
 configure_file(analysis/scan.py analysis/scan.py COPYONLY)
+configure_file(analysis/scans/efficiency.py analysis/scans/efficiency.py COPYONLY)
 configure_file(analysis/track_angles.py analysis/track_angles.py COPYONLY)
 
 configure_file(analysis/calibration/latency.py analysis/calibration/latency.py COPYONLY)
 configure_file(analysis/calibration/threshold.py analysis/calibration/threshold.py COPYONLY)
+configure_file(analysis/calibration/rate.py analysis/calibration/rate.py COPYONLY)
 
 configure_file(scripts/angles.sh scripts/angles.sh COPYONLY)
 configure_file(scripts/scan.sh scripts/scan.sh COPYONLY)
