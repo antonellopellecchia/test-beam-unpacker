@@ -16,7 +16,7 @@ DataFrame::DataFrame(std::vector<std::string> colNames, std::map<std::string, st
 
 DataFrame DataFrame::fromCsv(std::string path) {
 	// parse csv mapping file
-	std::string csvLine, buffer;
+	std::string csvLine, token;
 	std::ifstream csvFile(path);
 	std::vector<std::string> mappingRow;
 
@@ -29,10 +29,16 @@ DataFrame DataFrame::fromCsv(std::string path) {
 		mappingRow.clear();
 
 		std::stringstream lineStream(csvLine);
+
 		// split line by separator
-		while (getline(lineStream, buffer, ',')) {
-			mappingRow.push_back(buffer);
-		}
+        size_t pos = 0;
+        std::string delimiter = ",";
+        while ((pos = csvLine.find(delimiter)) != std::string::npos) {
+            token = csvLine.substr(0, pos);
+            csvLine.erase(0, pos + delimiter.length());
+            mappingRow.push_back(token);
+        }
+        mappingRow.push_back(csvLine);
 
 		if (lineIndex==0) { // parse header
 			colNames = mappingRow;
