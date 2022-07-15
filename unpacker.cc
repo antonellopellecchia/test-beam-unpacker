@@ -386,28 +386,46 @@ int main (int argc, char** argv) {
 
   std::cout << "Reading mapping files..." << std::endl;
   std::string mappingBaseDir = "mapping/"+geometry;
-  StripMapping trackerStripMapping(mappingBaseDir+"/tracker_mapping.csv");
-  StripMapping ge21StripMapping(mappingBaseDir+"/ge21_mapping.csv");
-  StripMapping me0StripMapping(mappingBaseDir+"/me0_mapping.csv");
+  std::map<int, StripMapping*> stripMappings;
   ChamberMapping chamberMapping(mappingBaseDir+"/chamber_mapping.csv");
-  std::cout << "Mapping files ok." << std::endl;
 
-  std::map<int, StripMapping*> stripMappings = {
-    {0, &trackerStripMapping},
-    {1, &trackerStripMapping},
-    {2, &trackerStripMapping},
-    {3, &trackerStripMapping},
-    {4, &ge21StripMapping},
-    {5, &me0StripMapping},
-    {6, &me0StripMapping},
-  };
+  if (geometry=="oct2021" || geometry=="may2022") {
+      StripMapping trackerStripMapping(mappingBaseDir+"/tracker_mapping.csv");
+      StripMapping ge21StripMapping(mappingBaseDir+"/ge21_mapping.csv");
+      StripMapping me0StripMapping(mappingBaseDir+"/me0_mapping.csv");
+      std::cout << "Mapping files ok." << std::endl;
+
+      stripMappings = {
+        {0, &trackerStripMapping},
+        {1, &trackerStripMapping},
+        {2, &trackerStripMapping},
+        {3, &trackerStripMapping},
+        {4, &ge21StripMapping},
+        {5, &me0StripMapping},
+        {6, &me0StripMapping},
+      };
+  } else if (geometry=="july2022") {
+      StripMapping trackerStripMapping(mappingBaseDir+"/tracker_mapping.csv");
+      StripMapping me0StripMapping(mappingBaseDir+"/me0_mapping.csv");
+      std::cout << "Mapping files ok." << std::endl;
+
+      stripMappings = {
+        {0, &trackerStripMapping},
+        {1, &trackerStripMapping},
+        {2, &trackerStripMapping},
+        {3, &me0StripMapping},
+      };
+  } else {
+      std::cout << "Error: geometry " << geometry << " not supported yet." << std::endl;
+      return -1;
+  }
+
   if (verbose) {
-      for (auto stripMapping:stripMappings) {
+      //chamberMapping.print();
+      /*for (auto stripMapping:stripMappings) {
           std::cout << "Chamber " << stripMapping.first << std::endl;
           stripMapping.second->print();
-      }
-
-      chamberMapping.print();
+      }*/
   }
 
   GEMUnpacker * m_unpacker = new GEMUnpacker(ifiles, isFedKit, ofile, every);
