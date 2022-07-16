@@ -23,11 +23,11 @@ DetectorLarge::DetectorLarge(int oh, int chamber, double baseNarrow, double base
     fPartitionStripPitches.reserve(fNumberPartitions);
     fPartitionStripPitchesSqrt12.reserve(fNumberPartitions);
     for (int eta=0; eta<fNumberPartitions; eta++) {
-        fPartitionYs[eta] = fEtaHeight*(0.5 + (double)(fNumberPartitions-eta-1));
-        fPartitionYTops[eta] = fPartitionYs[eta] + 0.5*fEtaHeight;
-        fPartitionWidths[eta] = fBaseNarrow + fPartitionYs[eta]*(fBaseWide-fBaseNarrow)/fHeight;
-        fPartitionStripPitches[eta] = fPartitionWidths[eta] / fNumberStrips;
-        fPartitionStripPitchesSqrt12[eta] = fPartitionStripPitches[eta] * 0.288675;
+        fPartitionYs.push_back(fEtaHeight*(0.5 + (double)(fNumberPartitions-eta-1)));
+        fPartitionYTops.push_back(fPartitionYs[eta] + 0.5*fEtaHeight);
+        fPartitionWidths.push_back(fBaseNarrow + fPartitionYs[eta]*(fBaseWide-fBaseNarrow)/fHeight);
+        fPartitionStripPitches.push_back(fPartitionWidths[eta] / fNumberStrips);
+        fPartitionStripPitchesSqrt12.push_back(fPartitionStripPitches[eta] * 0.288675);
 
         std::cout << "    eta partition " << eta+1;
         std::cout << ", middle y " << fPartitionYs[eta] << ", width " << fPartitionWidths[eta];
