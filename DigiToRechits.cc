@@ -25,7 +25,7 @@ void interruptHandler(int dummy) {
 int main (int argc, char** argv) {
 
   if (argc<3) {
-    std::cout << "Usage: DigiToRechits ifile ofile [--verbose] [--events n]" << std::endl;
+    std::cout << "Usage: DigiToRechits ifile ofile [--verbose] [--events n] [--geometry may2022/july2022]" << std::endl;
     return 0;
   }
   std::string ifile   = argv[1];
@@ -33,10 +33,17 @@ int main (int argc, char** argv) {
     
   int max_events = -1;
   bool verbose = false;
+  std::string geometry;
   for (int iarg=0; iarg<argc; iarg++) {
     std::string arg = argv[iarg];
     if (arg=="--verbose") verbose = true;
     else if (arg=="--events") max_events = atoi(argv[iarg+1]); 
+    else if (arg=="--geometry") geometry = argv[iarg+1]; 
+  }
+ 
+  if (geometry == "") {
+      std::cout << "Please specify a setup geometry" << std::endl;
+      return -1;
   }
 
   if (max_events>=0) std::cout << "Analyzing " << max_events << " events" << std::endl;
@@ -48,16 +55,28 @@ int main (int argc, char** argv) {
   TTree *digiTree = (TTree *) digiFile.Get("outputtree");
   TTree rechitTree("rechitTree","rechitTree");
 
+  std::vector<DetectorTracker> detectorsTracker;
+  std::vector<DetectorLarge> detectorsLarge;
   // define detector geometries
-  DetectorTracker detectorTrackers[4] = {
-    DetectorTracker(2, 0, 89.5, 89.5, 358),
-    DetectorTracker(2, 1, 89.5, 89.5, 358),
-    DetectorTracker(3, 2, 89.5, 89.5, 358),
-    DetectorTracker(3, 3, 89.5, 89.5, 358),
-  };
-  DetectorLarge detectorGe21(0, 4, 488.8, 628.8, 390.9, 4, 384);
-  DetectorLarge detectorMe0Blank(0, 5, 127.584, 434.985, 868.18, 8, 384);
-  DetectorLarge detectorMe0Random(1, 6, 127.584, 434.985, 868.18, 8, 384);
+  if (geometry == "may2022") {
+      detectorsTracker.push_back(DetectorTracker(2, 0, 89.5, 89.5, 358));
+      detectorsTracker.push_back(DetectorTracker(2, 1, 89.5, 89.5, 358));
+      detectorsTracker.push_back(DetectorTracker(3, 2, 89.5, 89.5, 358));
+      detectorsTracker.push_back(DetectorTracker(3, 3, 89.5, 89.5, 358));
+      detectorsLarge.push_back(DetectorLarge(0, 4, 488.8, 628.8, 390.9, 4, 384)); // ge21
+      detectorsLarge.push_back(DetectorLarge(0, 5, 127.584, 434.985, 868.18, 8, 384)); // me0 blank
+      detectorsLarge.push_back(DetectorLarge(1, 6, 127.584, 434.985, 868.18, 8, 384)); // me0 random
+  } else if (geometry == "july2022") {
+      detectorsTracker.push_back(DetectorTracker(0, 0, 89.5, 89.5, 256));
+      detectorsTracker.push_back(DetectorTracker(0, 1, 89.5, 89.5, 256));
+      detectorsTracker.push_back(DetectorTracker(0, 2, 89.5, 89.5, 256));
+      detectorsLarge.push_back(DetectorLarge(0, 3, 127.584, 434.985, 868.18, 8, 384)); // me0 blank
+  } else {
+      std::cout << "Geometry \"" << geometry << "\" not supported." << std::endl;
+      return -1;
+  }
+
+  int nTrackers = detectorsTracker.size();
 
   // digi variables
   int nhits;
@@ -199,17 +218,18 @@ int main (int argc, char** argv) {
       vecClusterFirst.push_back(clustersInEvent[icluster].getFirst());
       vecClusterSize.push_back(clustersInEvent[icluster].getSize());
 
-      if (clustersInEvent[icluster].getChamber()>3) {
+      if (clustersInEvent[icluster].getChamber() >= nTrackers) {
         // for large chamber, build 1D rechits:
         int chamber = clustersInEvent[icluster].getChamber();
         //rechit = Rechit(chamber, 0, clustersInEvent[icluster]);
         if (verbose) {
             std::cout << "  Chamber " << chamber;
-            std::cout << " eta=" << clustersInEvent[icluster].getEta();
+            std::cout << " eta " << clustersInEvent[icluster].getEta();
         }
-        if (chamber==4) rechit = detectorGe21.createRechit(clustersInEvent[icluster]);
-        else if (chamber==5) rechit = detectorMe0Blank.createRechit(clustersInEvent[icluster]);
-        else if (chamber==6) rechit = detectorMe0Random.createRechit(clustersInEvent[icluster]);
+        // create rechit from cluster on chosen detector:
+        for (DetectorLarge detector:detectorsLarge) {
+            if (detector.getChamber() == chamber) rechit = detector.createRechit(clustersInEvent[icluster]);
+        }
         vecRechitChamber.push_back(chamber);
         vecRechitEta.push_back(clustersInEvent[icluster].getEta());
         vecRechitX.push_back(rechit.getCenter());
@@ -237,7 +257,7 @@ int main (int argc, char** argv) {
           if (direction1==direction2) continue;
 
           //rechit2D = Rechit2D(chamber1, clustersInEvent[icluster], clustersInEvent[jcluster]);
-          rechit2D = detectorTrackers[chamber1].createRechit2D(clustersInEvent[icluster], clustersInEvent[jcluster]);
+          rechit2D = detectorsTracker[chamber1].createRechit2D(clustersInEvent[icluster], clustersInEvent[jcluster]);
 
           vecRechit2DChamber.push_back(chamber1);
           vecRechit2D_X_Center.push_back(rechit2D.getLocalX());
