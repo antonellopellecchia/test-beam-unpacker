@@ -38,7 +38,7 @@ void interruptHandler(int dummy) {
 int main (int argc, char** argv) {
 
     if (argc<3) {
-      std::cout << "Usage: Tracks ifile ofile [--verbose] [--events n] [-x corrections x] [-y corrections y] [--angles correction angles]" << std::endl;
+      std::cout << "Usage: Tracks ifile ofile [--geometry may2022/july2022] [--verbose] [--events n] [-x corrections x] [-y corrections y] [--angles correction angles]" << std::endl;
       return 0;
     }
     std::string ifile   = argv[1];
@@ -46,13 +46,15 @@ int main (int argc, char** argv) {
     
     int max_events = -1;
     bool verbose = false;
+    std::string geometry;
     double trackerAngles[4] = { 0, 0, 0, 0 };//.01158492576947, .00388093867016,  -.00190211740939, -.00971001194466 };
-    double trackerCorrectionsX[4] = { -.68888635583799, .01851981215192, -.01738387261102, -.01552764211394 };
-    double trackerCorrectionsY[4] = { -3.51064702409602, -1.08306067022753, .57358265976411, -.10031691598836 };
+    double trackerCorrectionsX[4] = { 0, 0, 0, 0 }; //{ -.68888635583799, .01851981215192, -.01738387261102, -.01552764211394 };
+    double trackerCorrectionsY[4] = { 0, 0, 0, 0 }; //{ -3.51064702409602, -1.08306067022753, .57358265976411, -.10031691598836 };
     for (int iarg=0; iarg<argc; iarg++) {
       std::string arg = argv[iarg];
       if (arg=="--verbose") verbose = true;
       else if (arg=="--events") max_events = atoi(argv[iarg+1]);
+      else if (arg=="--geometry") geometry = argv[iarg+1];
       else if (arg=="--angles") {
         std::cout << "angles: ";
         for (int iangle=0; iangle<4; iangle++) {
@@ -87,32 +89,46 @@ int main (int argc, char** argv) {
 
     TFile trackFile(ofile.c_str(), "RECREATE", "Track file");
     TTree trackTree("trackTree", "trackTree");
-  
-    // create geometry objects
-    DetectorTracker detectorTrackers[4] = {
-      DetectorTracker(2, 0, 89.5, 89.5, 358),
-      DetectorTracker(2, 1, 89.5, 89.5, 358),
-      DetectorTracker(3, 2, 89.5, 89.5, 358),
-      DetectorTracker(3, 3, 89.5, 89.5, 358),
-    };
-    DetectorLarge detectorsLarge[3] = {
-      DetectorLarge(0, 4, 488.8, 628.8, 390.9, 4, 384), // GE2/1
-      DetectorLarge(0, 5, 127.584, 434.985, 868.18, 8, 384), // ME0 blank
-      DetectorLarge(0, 6, 127.584, 434.985, 868.18, 8, 384), // ME0 random
-    };
-    std::map<int, DetectorGeometry*> detectorsMap = {
-      {4, &detectorsLarge[0]},
-      {5, &detectorsLarge[1]},
-      {6, &detectorsLarge[2]}
-    };
+ 
+    std::vector<DetectorTracker> detectorsTracker;
+    std::vector<DetectorLarge> detectorsLarge;
+    // define detector geometries
+    if (geometry == "may2022") {
+        detectorsTracker.push_back(DetectorTracker(2, 0, 89.5, 89.5, 358));
+        detectorsTracker.push_back(DetectorTracker(2, 1, 89.5, 89.5, 358));
+        detectorsTracker.push_back(DetectorTracker(3, 2, 89.5, 89.5, 358));
+        detectorsTracker.push_back(DetectorTracker(3, 3, 89.5, 89.5, 358));
+        detectorsLarge.push_back(DetectorLarge(0, 4, 488.8, 628.8, 390.9, 4, 384)); // ge21
+        detectorsLarge.push_back(DetectorLarge(0, 5, 127.584, 434.985, 868.18, 8, 384)); // me0 blank
+        detectorsLarge.push_back(DetectorLarge(1, 6, 127.584, 434.985, 868.18, 8, 384)); // me0 random
 
-    std::array<double,4>trackerZ={ -(697+254+294), -(254+294), 170, 170+697 };
-    for (int itracker=0; itracker<4; itracker++) {
-        detectorTrackers[itracker].setPosition(trackerCorrectionsX[itracker], trackerCorrectionsY[itracker], trackerZ[itracker], trackerAngles[itracker]);
+        std::array<double,4> trackerZ={ -(697+254+294), -(254+294), 170, 170+697 };
+        for (int itracker=0; itracker<4; itracker++) {
+            detectorsTracker[itracker].setPosition(trackerCorrectionsX[itracker], trackerCorrectionsY[itracker], trackerZ[itracker], trackerAngles[itracker]);
+        }
+        detectorsLarge[0].setPosition(0., 0., 0., 0.);
+        detectorsLarge[1].setPosition(0., 0., 0., 1.5707963267948966); // ME0 tilted by 90°
+        detectorsLarge[2].setPosition(0., 0., 0., 1.5707963267948966);
+   } else if (geometry == "july2022") {
+        detectorsTracker.push_back(DetectorTracker(0, 0, 89.5, 89.5, 256));
+        detectorsTracker.push_back(DetectorTracker(0, 1, 89.5, 89.5, 256));
+        detectorsTracker.push_back(DetectorTracker(0, 2, 89.5, 89.5, 256));
+        detectorsLarge.push_back(DetectorLarge(0, 3, 127.584, 434.985, 868.18, 8, 384)); // me0 blank
+
+        std::array<double,3> trackerZ={ -40, -20, +40 };
+        for (int itracker=0; itracker<3; itracker++) {
+            detectorsTracker[itracker].setPosition(trackerCorrectionsX[itracker], trackerCorrectionsY[itracker], trackerZ[itracker], trackerAngles[itracker]);
+        }
+        detectorsLarge[0].setPosition(0., 0., 0., 3.1415227);
+    } else {
+        std::cout << "Geometry \"" << geometry << "\" not supported." << std::endl;
+        return -1;
     }
-    detectorsLarge[0].setPosition(0., 0., 0., 0.);
-    detectorsLarge[1].setPosition(0., 0., 0., 1.5707963267948966); // ME0 tilted by 90°
-    detectorsLarge[2].setPosition(0., 0., 0., 1.5707963267948966);
+
+    const int nTrackers = detectorsTracker.size();
+    // create map from chamber number to large detector:
+    std::map<int, DetectorGeometry*> detectorsMap;
+    for (DetectorLarge detector:detectorsLarge) detectorsMap[detector.getChamber()] = &detector;
     
     // rechit variables
     int nrechits;
@@ -155,7 +171,6 @@ int main (int argc, char** argv) {
     rechitTree->SetBranchAddress("rechit2D_X_clusterSize", &vecRechit2D_X_ClusterSize);
     rechitTree->SetBranchAddress("rechit2D_Y_clusterSize", &vecRechit2D_Y_ClusterSize);
 
-    const int nTrackingChambers = 4;
     // track variables
     std::vector<double> tracks_X_chi2;
     std::vector<double> tracks_Y_chi2;
@@ -270,7 +285,7 @@ int main (int argc, char** argv) {
     int nentries = rechitTree->GetEntries();
     int nentriesGolden = 0, nentriesNice = 0;
     // support array to exclude events with more than one hit per tracker:
-    std::array<double, nTrackingChambers> hitsPerTrackingChamber;
+    std::vector<double> hitsPerTrackingChamber(nTrackers);
 
     std::cout << nentries << " total events" <<  std::endl;
     if (max_events>0) nentries = max_events;
@@ -283,7 +298,7 @@ int main (int argc, char** argv) {
       else bar.update();
 
       /* reset support variables */
-      for (int i=0; i<nTrackingChambers; i++) {
+      for (int i=0; i<nTrackers; i++) {
         hitsPerTrackingChamber[i] = 0;
       }
       /* reset branch variables */
@@ -349,7 +364,7 @@ int main (int argc, char** argv) {
       }
       nentriesNice++;
 
-      for (int testedChamber=0; testedChamber<nTrackingChambers; testedChamber++) {
+      for (int testedChamber=0; testedChamber<nTrackers; testedChamber++) {
         track.clear();
         // loop over rechits and make track:
         for (int irechit=0; irechit<nrechits2d; irechit++) {
@@ -359,7 +374,7 @@ int main (int argc, char** argv) {
             Rechit(chamber, vecRechit2D_Y_Center->at(irechit), vecRechit2D_Y_Error->at(irechit), vecRechit2D_Y_ClusterSize->at(irechit))
           );
           // apply global geometry:
-          detectorTrackers[chamber].mapRechit2D(&rechit2d);
+          detectorsTracker[chamber].mapRechit2D(&rechit2d);
           if (chamber!=testedChamber) {
             track.addRechit(rechit2d);
           } else {
@@ -385,25 +400,28 @@ int main (int argc, char** argv) {
         tracks_Y_covariance.push_back(track.getCovarianceY());
 
         // propagate to chamber under test:
-        prophits2D_X.push_back(track.propagateX(detectorTrackers[testedChamber].getPositionZ()));
-        prophits2D_Y.push_back(track.propagateY(detectorTrackers[testedChamber].getPositionZ()));
-        prophits2D_X_Error.push_back(track.propagationErrorX(detectorTrackers[testedChamber].getPositionZ()));
-        prophits2D_Y_Error.push_back(track.propagationErrorY(detectorTrackers[testedChamber].getPositionZ()));
+        prophits2D_X.push_back(track.propagateX(detectorsTracker[testedChamber].getPositionZ()));
+        prophits2D_Y.push_back(track.propagateY(detectorsTracker[testedChamber].getPositionZ()));
+        prophits2D_X_Error.push_back(track.propagationErrorX(detectorsTracker[testedChamber].getPositionZ()));
+        prophits2D_Y_Error.push_back(track.propagationErrorY(detectorsTracker[testedChamber].getPositionZ()));
 
         if (verbose) {
           std::cout << "  Chamber " << testedChamber << std::endl;
           std::cout << "    " << "track slope (" << track.getSlopeX() << "," << track.getSlopeY() << ")";
           std::cout << " " << "intercept (" << track.getInterceptX() << "," << track.getInterceptY() << ")";
           std::cout << std::endl;
-          std::cout << "    " << "rechit (" << rechits2D_X.back();
-          std::cout << ", " << rechits2D_Y.back() << ")";
-          std::cout << "  " << "prophit (" << prophits2D_X.back();
-          std::cout << ", " << prophits2D_Y.back() << ")";
-          std::cout << std::endl;
+          std::cout << "    " << rechits2D_X.size() << " rechits" << std::endl;
+          if (rechits2D_X.size()>0) {
+              std::cout << "    " << "rechit (" << rechits2D_X.back();
+              std::cout << ", " << rechits2D_Y.back() << ")";
+              std::cout << "  " << "prophit (" << prophits2D_X.back();
+              std::cout << ", " << prophits2D_Y.back() << ")";
+              std::cout << std::endl;
+          }
         }
       }
 
-      // build track with all 4 trackers
+      // build track with all trackers
       track.clear();
       for (int irechit=0; irechit<nrechits2d; irechit++) {
         chamber = vecRechit2DChamber->at(irechit);
@@ -411,7 +429,7 @@ int main (int argc, char** argv) {
           Rechit(chamber, vecRechit2D_X_Center->at(irechit), vecRechit2D_X_Error->at(irechit), vecRechit2D_X_ClusterSize->at(irechit)),
           Rechit(chamber, vecRechit2D_Y_Center->at(irechit), vecRechit2D_Y_Error->at(irechit), vecRechit2D_Y_ClusterSize->at(irechit))
         );
-        detectorTrackers[chamber].mapRechit2D(&rechit2d); // apply local geometry
+        detectorsTracker[chamber].mapRechit2D(&rechit2d); // apply local geometry
         track.addRechit(rechit2d);
       }
       track.fit();
