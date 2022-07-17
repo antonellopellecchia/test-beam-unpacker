@@ -21,13 +21,11 @@ hep.cms.label()#, data=<True|False>, lumi=50, year=2017)
 from concurrent.futures import ThreadPoolExecutor
 executor = ThreadPoolExecutor(8)
 
-chamber_text = "GEM-10x10-380XY-BARI-0{}\n"\
+chamber_text = "Tracker {}\n"\
         +"10x10 $cm^2$ triple-GEM\n"\
-        +"125 µm strip pitch\n"\
+        +"250 µm strip pitch\n"\
         +"Ar-$CO_2$ 70%-30%\n"\
-        +"Equivalent divider current 740 µA\n"\
         +"$5\,M#Omega$ high voltage divider\n"\
-        +"Cluster size < 10"
 
 def linear_function(x, *p):
     q, m = p
@@ -45,6 +43,8 @@ def gauss2(x, *p):
     #return gauss(x, A1, mu1, sigma1) + gauss(x, A2, mu2, sigma2)
 
 def analyse_residuals(residuals, histo_range, nbins, ax, legend, xlabel, color="red"):
+   
+    #histo_range = (residuals.min(), residuals.max())
     points, bins = np.histogram(residuals, bins=nbins, range=histo_range)
     bins = bins[:-1]+ 0.5*(bins[1:] - bins[:-1])
     
@@ -108,16 +108,17 @@ def main():
         cluster_size_y = track_tree["rechits2D_Y_ClusterSize"].array(entry_stop=args.events)
         prophits_x_error = track_tree["prophits2D_X_Error"].array(entry_stop=args.events)
         prophits_y_error = track_tree["prophits2D_Y_Error"].array(entry_stop=args.events)
-        
+       
+        n_chambers = 3
         # choose only events with hits in all chambers:
-        mask_4hit = ak.count_nonzero(rechits_chamber>=0, axis=1)>3
-        rechits_chamber = rechits_chamber[mask_4hit]
-        rechits_x, rechits_y = rechits_x[mask_4hit], rechits_y[mask_4hit]
-        prophits_x, prophits_y = prophits_x[mask_4hit], prophits_y[mask_4hit]
-        cluster_size_x, cluster_size_y = cluster_size_x[mask_4hit], cluster_size_y[mask_4hit]
-        prophits_x_error, prophits_y_error = prophits_x_error[mask_4hit], prophits_y_error[mask_4hit]
-        tracks_x_covariance, tracks_y_covariance = tracks_x_covariance[mask_4hit], tracks_y_covariance[mask_4hit]
-        track_chi2_x, track_chi2_y = track_chi2_x[mask_4hit], track_chi2_y[mask_4hit]
+        mask_nhits = ak.count_nonzero(rechits_chamber>=0, axis=1)>=n_chambers
+        rechits_chamber = rechits_chamber[mask_nhits]
+        rechits_x, rechits_y = rechits_x[mask_nhits], rechits_y[mask_nhits]
+        prophits_x, prophits_y = prophits_x[mask_nhits], prophits_y[mask_nhits]
+        cluster_size_x, cluster_size_y = cluster_size_x[mask_nhits], cluster_size_y[mask_nhits]
+        prophits_x_error, prophits_y_error = prophits_x_error[mask_nhits], prophits_y_error[mask_nhits]
+        tracks_x_covariance, tracks_y_covariance = tracks_x_covariance[mask_nhits], tracks_y_covariance[mask_nhits]
+        track_chi2_x, track_chi2_y = track_chi2_x[mask_nhits], track_chi2_y[mask_nhits]
  
         if args.verbose:
             print("Rechits x:", rechits_x, "length:", ak.count(rechits_x, axis=1))
@@ -128,22 +129,22 @@ def main():
         # Preparing figures:
         print("Starting plotting...")
         directions = ["x", "y"]
-        residual_fig, residual_axs = plt.subplots(nrows=2, ncols=4, figsize=(50,20))
-        residual_cls_fig, residual_cls_axs = plt.subplots(nrows=2, ncols=4, figsize=(50,18))
-        spres_fig, spres_axs = plt.subplots(nrows=1, ncols=4, figsize=(45,10))
-        rotation_fig, rotation_axs = plt.subplots(nrows=2, ncols=4, figsize=(50,18))
-        properr_fig, properr_axs = plt.subplots(nrows=1, ncols=4, figsize=(32,7))
-        prophits_fig, prophits_axs = plt.subplots(nrows=2, ncols=4, figsize=(50,18))
-        profile_fig, profile_axs = plt.subplots(nrows=2, ncols=4, figsize=(50,18)) 
-        residuals2d_xx_fig, residuals2d_xx_axs = plt.subplots(nrows=2, ncols=4, figsize=(50,18))
-        residuals2d_xy_fig, residuals2d_xy_axs = plt.subplots(nrows=2, ncols=4, figsize=(50,18))
-        cluster_size_fig, cluster_size_axs = plt.subplots(nrows=1, ncols=4, figsize=(50,9))
-        chi2_fig, chi2_axs = plt.subplots(nrows=2, ncols=4, figsize=(10*4,9*2))
-        properr_position_fig, properr_position_axs = plt.subplots(nrows=2, ncols=4, figsize=(10*4,9*2))
+        residual_fig, residual_axs = plt.subplots(nrows=2, ncols=n_chambers, figsize=(12*n_chambers,20))
+        residual_cls_fig, residual_cls_axs = plt.subplots(nrows=2, ncols=n_chambers, figsize=(12*n_chambers,18))
+        spres_fig, spres_axs = plt.subplots(nrows=1, ncols=n_chambers, figsize=(12*n_chambers,10))
+        rotation_fig, rotation_axs = plt.subplots(nrows=2, ncols=n_chambers, figsize=(12*n_chambers,18))
+        properr_fig, properr_axs = plt.subplots(nrows=1, ncols=n_chambers, figsize=(12*n_chambers,7))
+        prophits_fig, prophits_axs = plt.subplots(nrows=2, ncols=n_chambers, figsize=(12*n_chambers,18))
+        profile_fig, profile_axs = plt.subplots(nrows=2, ncols=n_chambers, figsize=(12*n_chambers,18)) 
+        residuals2d_xx_fig, residuals2d_xx_axs = plt.subplots(nrows=2, ncols=n_chambers, figsize=(12*n_chambers,18))
+        residuals2d_xy_fig, residuals2d_xy_axs = plt.subplots(nrows=2, ncols=n_chambers, figsize=(12*n_chambers,18))
+        cluster_size_fig, cluster_size_axs = plt.subplots(nrows=1, ncols=n_chambers, figsize=(12*n_chambers,9))
+        chi2_fig, chi2_axs = plt.subplots(nrows=2, ncols=n_chambers, figsize=(10*n_chambers,9*2))
+        properr_position_fig, properr_position_axs = plt.subplots(nrows=2, ncols=n_chambers, figsize=(10*n_chambers,9*2))
 
-        angles, err_angles = np.ndarray((2,4)), np.ndarray((2,4))
-        translation, err_translation = np.ndarray((2,4)), np.ndarray((2,4))
-        for tested_chamber in tqdm(range(4)):
+        angles, err_angles = np.ndarray((2,n_chambers)), np.ndarray((2,n_chambers))
+        translation, err_translation = np.ndarray((2,n_chambers)), np.ndarray((2,n_chambers))
+        for tested_chamber in tqdm(range(n_chambers)):
             rechits = [rechits_x[:,tested_chamber], rechits_y[:,tested_chamber]]
             # apply angular correction to rechits:
             # rechits_corrected = [
@@ -152,12 +153,12 @@ def main():
             # ]
             # rechits = rechits_corrected
 
-            prophits = [prophits_x[:,tested_chamber], prophits_y[:,tested_chamber]]
-            residuals = [prophits[0]-rechits[0], prophits[1]-rechits[1]]
-            cluster_sizes = [cluster_size_x[:,tested_chamber], cluster_size_y[:,tested_chamber]]
-            tracks_covariance = [tracks_x_covariance[:,tested_chamber], tracks_y_covariance[:,tested_chamber]]
-            properrs = prophits_x_error[:,tested_chamber], prophits_y_error[:,tested_chamber]
-            chi2 = [track_chi2_x[:,tested_chamber], track_chi2_y[:,tested_chamber]]
+            prophits = [np.array(prophits_x[:,tested_chamber]), np.array(prophits_y[:,tested_chamber])]
+            residuals = [np.array(prophits[0]-rechits[0]), np.array(prophits[1]-rechits[1])]
+            cluster_sizes = [np.array(cluster_size_x[:,tested_chamber]), np.array(cluster_size_y[:,tested_chamber])]
+            tracks_covariance = [np.array(tracks_x_covariance[:,tested_chamber]), np.array(tracks_y_covariance[:,tested_chamber])]
+            properrs = np.array(prophits_x_error[:,tested_chamber]), np.array(prophits_y_error[:,tested_chamber])
+            chi2 = [np.array(track_chi2_x[:,tested_chamber]), np.array(track_chi2_y[:,tested_chamber])]
 
             space_resolutions, err_space_resolutions = dict(), dict()
             cluster_size_cuts = list(range(2,10))
@@ -185,7 +186,7 @@ def main():
                 # plot residuals for all cluster sizes:
                 correction, err_correction, space_resolution, err_space_resolution = analyse_residuals(
                     residuals[idirection],
-                    (-6.7, 6.7), 300,
+                    (-4.7, 4.7), 200,
                     residual_axs[idirection][tested_chamber],
                     "", f"Residual {direction} (mm)",
                     color=["red", "blue"][idirection]
