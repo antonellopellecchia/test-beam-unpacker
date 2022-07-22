@@ -47,7 +47,7 @@ int main (int argc, char** argv) {
     int max_events = -1;
     bool verbose = false;
     std::string geometry;
-    double trackerAngles[4] = { 0, 0.5*3.1415227, 0, 0 };//.01158492576947, .00388093867016,  -.00190211740939, -.00971001194466 };
+    double trackerAngles[4] = { 0, -0.5*3.1415227, 0, 0 };//.01158492576947, .00388093867016,  -.00190211740939, -.00971001194466 };
     double trackerCorrectionsX[4] = { 0, 0, 0, 0 }; //{ -.68888635583799, .01851981215192, -.01738387261102, -.01552764211394 };
     double trackerCorrectionsY[4] = { 0, 0, 0, 0 }; //{ -3.51064702409602, -1.08306067022753, .57358265976411, -.10031691598836 };
     for (int iarg=0; iarg<argc; iarg++) {
@@ -119,7 +119,7 @@ int main (int argc, char** argv) {
         for (int itracker=0; itracker<3; itracker++) {
             detectorsTracker[itracker].setPosition(trackerCorrectionsX[itracker], trackerCorrectionsY[itracker], trackerZ[itracker], trackerAngles[itracker]);
         }
-        detectorsLarge[0].setPosition(0., 0., 0., 3.1415227);
+        detectorsLarge[0].setPosition(0., 0., 0., 0);//3.1415227);
     } else {
         std::cout << "Geometry \"" << geometry << "\" not supported." << std::endl;
         return -1;
@@ -346,7 +346,7 @@ int main (int argc, char** argv) {
 
       rechitTree->GetEntry(nevt);
 
-      // process event only if at least one 2D rechit per tracking chamber:
+      // process event only if at most one 2D rechit per tracking chamber:
       bool isNiceEvent = true;
       for (int irechit=0; isNiceEvent && irechit<nrechits2d; irechit++) {
         chamber = vecRechit2DChamber->at(irechit);
@@ -355,71 +355,73 @@ int main (int argc, char** argv) {
         if (verbose) std::cout << "  Rechit in chamber " << chamber << std::endl;
       }
 
-      // skip if it is not a nice event:
-      if (!isNiceEvent) {
+      // skip building tracks with n-1 trackers if is not a nice event:
+      if (isNiceEvent) {
+          nentriesNice++;
+
+          for (int testedChamber=0; testedChamber<nTrackers; testedChamber++) {
+            track.clear();
+            // loop over rechits and make track:
+            for (int irechit=0; irechit<nrechits2d; irechit++) {
+              chamber = vecRechit2DChamber->at(irechit);
+              rechit2d = Rechit2D(chamber,
+                Rechit(chamber, vecRechit2D_X_Center->at(irechit), vecRechit2D_X_Error->at(irechit), vecRechit2D_X_ClusterSize->at(irechit)),
+                Rechit(chamber, vecRechit2D_Y_Center->at(irechit), vecRechit2D_Y_Error->at(irechit), vecRechit2D_Y_ClusterSize->at(irechit))
+              );
+              // apply global geometry:
+              detectorsTracker[chamber].mapRechit2D(&rechit2d);
+              if (chamber!=testedChamber) {
+                track.addRechit(rechit2d);
+              } else {
+                // add rechit to tree
+                rechits2D_Chamber.push_back(chamber);
+                rechits2D_X.push_back(rechit2d.getGlobalX());
+                rechits2D_Y.push_back(rechit2d.getGlobalY());
+                rechits2D_X_ClusterSize.push_back(rechit2d.getClusterSizeX());
+                rechits2D_Y_ClusterSize.push_back(rechit2d.getClusterSizeY());
+                rechits2D_X_Error.push_back(rechit2d.getErrorX());
+                rechits2D_Y_Error.push_back(rechit2d.getErrorY());
+              }
+            }
+            // fit and save track:
+            track.fit();
+            tracks_X_chi2.push_back(track.getChi2X());
+            tracks_Y_chi2.push_back(track.getChi2Y());
+            tracks_X_slope.push_back(track.getSlopeX());
+            tracks_Y_slope.push_back(track.getSlopeY());
+            tracks_X_intercept.push_back(track.getInterceptX());
+            tracks_Y_intercept.push_back(track.getInterceptY());
+            tracks_X_covariance.push_back(track.getCovarianceX());
+            tracks_Y_covariance.push_back(track.getCovarianceY());
+
+            // propagate to chamber under test:
+            prophits2D_X.push_back(track.propagateX(detectorsTracker[testedChamber].getPositionZ()));
+            prophits2D_Y.push_back(track.propagateY(detectorsTracker[testedChamber].getPositionZ()));
+            prophits2D_X_Error.push_back(track.propagationErrorX(detectorsTracker[testedChamber].getPositionZ()));
+            prophits2D_Y_Error.push_back(track.propagationErrorY(detectorsTracker[testedChamber].getPositionZ()));
+
+            if (verbose) {
+              std::cout << "  Chamber " << testedChamber << std::endl;
+              std::cout << "    " << "track slope (" << track.getSlopeX() << "," << track.getSlopeY() << ")";
+              std::cout << " " << "intercept (" << track.getInterceptX() << "," << track.getInterceptY() << ")";
+              std::cout << std::endl;
+              std::cout << "    " << rechits2D_X.size() << " rechits" << std::endl;
+              if (rechits2D_X.size()>0) {
+                  std::cout << "    " << "rechit (" << rechits2D_X.back();
+                  std::cout << ", " << rechits2D_Y.back() << ")";
+                  std::cout << "  " << "prophit (" << prophits2D_X.back();
+                  std::cout << ", " << prophits2D_Y.back() << ")";
+                  std::cout << std::endl;
+              }
+            }
+          }
+      } else {
         if (verbose) {
-          std::cout << "  Not nice, skipping event..." << std::endl; 
+          std::cout << "  Not nice, skipping tracker calibration..." << std::endl; 
         }
         continue;
       }
-      nentriesNice++;
 
-      for (int testedChamber=0; testedChamber<nTrackers; testedChamber++) {
-        track.clear();
-        // loop over rechits and make track:
-        for (int irechit=0; irechit<nrechits2d; irechit++) {
-          chamber = vecRechit2DChamber->at(irechit);
-          rechit2d = Rechit2D(chamber,
-            Rechit(chamber, vecRechit2D_X_Center->at(irechit), vecRechit2D_X_Error->at(irechit), vecRechit2D_X_ClusterSize->at(irechit)),
-            Rechit(chamber, vecRechit2D_Y_Center->at(irechit), vecRechit2D_Y_Error->at(irechit), vecRechit2D_Y_ClusterSize->at(irechit))
-          );
-          // apply global geometry:
-          detectorsTracker[chamber].mapRechit2D(&rechit2d);
-          if (chamber!=testedChamber) {
-            track.addRechit(rechit2d);
-          } else {
-            // add rechit to tree
-            rechits2D_Chamber.push_back(chamber);
-            rechits2D_X.push_back(rechit2d.getGlobalX());
-            rechits2D_Y.push_back(rechit2d.getGlobalY());
-            rechits2D_X_ClusterSize.push_back(rechit2d.getClusterSizeX());
-            rechits2D_Y_ClusterSize.push_back(rechit2d.getClusterSizeY());
-            rechits2D_X_Error.push_back(rechit2d.getErrorX());
-            rechits2D_Y_Error.push_back(rechit2d.getErrorY());
-          }
-        }
-        // fit and save track:
-        track.fit();
-        tracks_X_chi2.push_back(track.getChi2X());
-        tracks_Y_chi2.push_back(track.getChi2Y());
-        tracks_X_slope.push_back(track.getSlopeX());
-        tracks_Y_slope.push_back(track.getSlopeY());
-        tracks_X_intercept.push_back(track.getInterceptX());
-        tracks_Y_intercept.push_back(track.getInterceptY());
-        tracks_X_covariance.push_back(track.getCovarianceX());
-        tracks_Y_covariance.push_back(track.getCovarianceY());
-
-        // propagate to chamber under test:
-        prophits2D_X.push_back(track.propagateX(detectorsTracker[testedChamber].getPositionZ()));
-        prophits2D_Y.push_back(track.propagateY(detectorsTracker[testedChamber].getPositionZ()));
-        prophits2D_X_Error.push_back(track.propagationErrorX(detectorsTracker[testedChamber].getPositionZ()));
-        prophits2D_Y_Error.push_back(track.propagationErrorY(detectorsTracker[testedChamber].getPositionZ()));
-
-        if (verbose) {
-          std::cout << "  Chamber " << testedChamber << std::endl;
-          std::cout << "    " << "track slope (" << track.getSlopeX() << "," << track.getSlopeY() << ")";
-          std::cout << " " << "intercept (" << track.getInterceptX() << "," << track.getInterceptY() << ")";
-          std::cout << std::endl;
-          std::cout << "    " << rechits2D_X.size() << " rechits" << std::endl;
-          if (rechits2D_X.size()>0) {
-              std::cout << "    " << "rechit (" << rechits2D_X.back();
-              std::cout << ", " << rechits2D_Y.back() << ")";
-              std::cout << "  " << "prophit (" << prophits2D_X.back();
-              std::cout << ", " << prophits2D_Y.back() << ")";
-              std::cout << std::endl;
-          }
-        }
-      }
 
       // build track with all trackers
       track.clear();
