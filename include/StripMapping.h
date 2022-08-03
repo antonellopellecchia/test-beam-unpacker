@@ -14,7 +14,7 @@ class StripMapping {
 	    void print();
 
 	    int to_strip[24][128];
-	    int to_eta[12] = {0};
+	    int to_eta[24] = {0};
 };
 
 #endif
