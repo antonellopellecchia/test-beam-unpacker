@@ -44,6 +44,9 @@ def main():
         digi_eta = digi_tree["digiEta"].array(entry_start=args.start,entry_stop=args.start+args.events)
         digi_strip = digi_tree["digiStrip"].array(entry_start=args.start,entry_stop=args.start+args.events)
 
+        for channel in range(128):
+            print(channel, ak.count_nonzero(ak.flatten(digi_channel==channel)))
+
         if args.latency_cut:
             latencies = digi_tree["runParameter"].array(entry_start=args.start,entry_stop=args.start+args.events)
             print("Broadcasting latency...")
@@ -112,14 +115,16 @@ def main():
                         if not args.latency_cut:
                             channel_hist, channel_bins, _ = occupancy_axs[vfat].hist(filtered_channel, bins=140, range=(-0.5,139.5))
                         else:
+                            nbins = 128*2
+                            binrange = (0.5,256.5)
                             filtered_latency = ak.flatten(digi_latency[vfat_filter])
                             channel_hist, channel_bins, _ = occupancy_axs[vfat].hist(
                                     filtered_channel[filtered_latency<args.latency_cut],
-                                    bins=140, range=(-0.5,139.5), label=f"latency < {args.latency_cut}", alpha=0.4
+                                    bins=nbins, range=binrange, label=f"latency < {args.latency_cut}", alpha=0.4
                             )
                             occupancy_axs[vfat].hist(
                                     filtered_channel[filtered_latency>=args.latency_cut],
-                                    bins=140, range=(-0.5,139.5), label=f"latency > {args.latency_cut}", alpha=0.4
+                                    bins=nbins, range=binrange, label=f"latency > {args.latency_cut}", alpha=0.4
                             )
                             occupancy_axs[vfat].legend()
                         
@@ -159,6 +164,9 @@ def main():
             if not args.compact: occupancy_fig, occupancy_axs = plt.subplots(figsize=(12*len(etas),10), ncols=len(etas), nrows=1)
             else: occupancy_fig, occupancy_axs = plt.subplots(figsize=(10,6*len(etas)), nrows=len(etas), ncols=1, sharex=True)
 
+            for strip in range(0, 385):
+                print(strip, ak.count_nonzero(chamber_strips==strip))
+
             for ieta,eta in enumerate(etas):
                 #if eta>3: break
                 occupancy_ax = occupancy_axs[ieta]
@@ -174,7 +182,10 @@ def main():
                
                 oh = np.unique(filtered_oh)[0]
                 vfats = np.unique(filtered_vfat)
-
+                
+                nbins = 128*3
+                binrange = (0.5,384.5)
+ 
                 if not args.latency_cut:
                     if args.compact:
                         occupancy_ax.margins(y=0)
@@ -183,17 +194,17 @@ def main():
                             if args.verbose: print(f"Deleting axes chamber {chamber} eta {eta}")
                             occupancy_fig.delaxes(occupancy_ax)
                             continue
-                        occupancy_ax.hist(filtered_strips, bins=358, range=(0,358), alpha=0.3, color=["blue","purple","red","yellow"][ieta])
+                        occupancy_ax.hist(filtered_strips, bins=nbins, range=binrange, alpha=0.3, color=["blue","purple","red","yellow"][ieta])
                     else:
                         for vfat in vfats:
                             filtered_strips_vfat = filtered_strips[filtered_vfat==vfat]
                             if args.verbose: print(f"  chamber {chamber}, eta {eta}, VFAT {vfat}, strips:", filtered_strips_vfat)
-                            occupancy_ax.hist(filtered_strips_vfat, bins=358, range=(0,358), label="OH {}, VFAT {}".format(oh, vfat), alpha=0.5)
+                            occupancy_ax.hist(filtered_strips_vfat, bins=nbins, range=binrange, label="OH {}, VFAT {}".format(oh, vfat), alpha=0.5)
                 else:
                     filtered_latency = ak.flatten(digi_latency[(chamber_filter)&(eta_filter)])
                     if args.verbose: print(f"  chamber {chamber}, eta {eta}, VFAT {vfat}, strips:", filtered_strips)
-                    occupancy_ax.hist(filtered_strips[filtered_latency<args.latency_cut], bins=358, range=(0,358), label=f"latency < {args.latency_cut}", alpha=0.4)
-                    occupancy_ax.hist(filtered_strips[filtered_latency>=args.latency_cut], bins=358, range=(0,358), label=f"latency > {args.latency_cut}", alpha=0.4)
+                    occupancy_ax.hist(filtered_strips[filtered_latency<args.latency_cut], bins=nbins, range=binrange, label=f"latency < {args.latency_cut}", alpha=0.4)
+                    occupancy_ax.hist(filtered_strips[filtered_latency>=args.latency_cut], bins=nbins, range=binrange, label=f"latency > {args.latency_cut}", alpha=0.4)
 
                 if args.ylim: occupancy_ax.set_ylim(0, args.ylim)
                 if not args.compact:
