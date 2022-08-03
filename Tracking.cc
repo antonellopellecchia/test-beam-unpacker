@@ -114,9 +114,9 @@ int main (int argc, char** argv) {
         detectorsLarge[1].setPosition(0., 0., 0., 1.5707963267948966); // ME0 tilted by 90°
         detectorsLarge[2].setPosition(0., 0., 0., 1.5707963267948966);
    } else if (geometry == "july2022") {
-        detectorsTracker.push_back(DetectorTracker(0, 0, 89.5, 89.5, 256));
-        detectorsTracker.push_back(DetectorTracker(0, 1, 89.5, 89.5, 256));
-        detectorsTracker.push_back(DetectorTracker(0, 2, 89.5, 89.5, 256));
+        detectorsTracker.push_back(DetectorTracker(0, 0, 100., 100., 256));
+        detectorsTracker.push_back(DetectorTracker(0, 1, 100., 100., 256));
+        detectorsTracker.push_back(DetectorTracker(0, 2, 100., 100., 256));
         detectorsLarge.push_back(DetectorLarge(0, 3, 127.584, 434.985, 868.18, 8, 384)); // me0 blank
 
         std::array<double,3> trackerZ={ -40, -20, +40 };
