@@ -36,7 +36,7 @@ def main():
     mapping_df["channel"] = broadcasted_vfat_df["channel"]
     if args.verbose: print("Adding channel:\n", mapping_df)
 
-    mapping_df["strip"] = n_channels - broadcasted_vfat_df["strip"] + n_channels * mapping_df["position"]
+    mapping_df["strip"] = n_channels+1 - broadcasted_vfat_df["strip"] + n_channels * mapping_df["position"]
     if args.verbose: print("Adding strips:\n", mapping_df)
     
     mapping_df = mapping_df[["vfat", "channel", "eta", "strip"]]
