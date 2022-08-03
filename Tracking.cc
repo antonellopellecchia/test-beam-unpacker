@@ -2,11 +2,15 @@
 #include <iostream>
 #include <cstdint>
 #include <vector>
+#include <set>
 #include <array>
 #include <bitset>
 #include <signal.h>
 #include <math.h>
 #include <sys/stat.h>
+
+#include <chrono>
+#include <thread>
 
 #include <TFile.h>
 #include <TTree.h>
@@ -119,7 +123,7 @@ int main (int argc, char** argv) {
         for (int itracker=0; itracker<3; itracker++) {
             detectorsTracker[itracker].setPosition(trackerCorrectionsX[itracker], trackerCorrectionsY[itracker], trackerZ[itracker], trackerAngles[itracker]);
         }
-        detectorsLarge[0].setPosition(0., 0., 0., 0);//3.1415227);
+        detectorsLarge[0].setPosition(23.87, 0., 0., -18.31e-3);//3.1415227);
     } else {
         std::cout << "Geometry \"" << geometry << "\" not supported." << std::endl;
         return -1;
@@ -278,6 +282,7 @@ int main (int argc, char** argv) {
     trackTree.Branch("prophitLocalPhi", &prophitsLocalPhi);
 
     Track2D track;
+    std::vector<Track2D> trackerTracks; // all possible tracks built with all tracker, choose only one at the end
     Rechit rechit;
     Rechit2D rechit2d;
     Hit hit;
@@ -348,15 +353,23 @@ int main (int argc, char** argv) {
 
       // process event only if at most one 2D rechit per tracking chamber:
       bool isNiceEvent = true;
-      for (int irechit=0; isNiceEvent && irechit<nrechits2d; irechit++) {
+      for (int irechit=0; irechit<nrechits2d; irechit++) {
         chamber = vecRechit2DChamber->at(irechit);
         if (hitsPerTrackingChamber[chamber]>0) isNiceEvent = false;
-        else hitsPerTrackingChamber[chamber]++;
-        if (verbose) std::cout << "  Rechit in chamber " << chamber << std::endl;
+        hitsPerTrackingChamber[chamber]++;
+      }
+      if (verbose) {
+          for (int i=0; i<hitsPerTrackingChamber.size(); i++) {
+              std::cout << "  " << hitsPerTrackingChamber[i] << " rechits in chamber " << i << std::endl;
+          }
       }
 
       // skip building tracks with n-1 trackers if is not a nice event:
       if (isNiceEvent) {
+
+          if (verbose) {
+              std::cout << "  #### Extrapolation on tracker ####" << std::endl;
+          }
           nentriesNice++;
 
           for (int testedChamber=0; testedChamber<nTrackers; testedChamber++) {
@@ -419,22 +432,118 @@ int main (int argc, char** argv) {
         if (verbose) {
           std::cout << "  Not nice, skipping tracker calibration..." << std::endl; 
         }
-        continue;
       }
 
-
-      // build track with all trackers
-      track.clear();
-      for (int irechit=0; irechit<nrechits2d; irechit++) {
-        chamber = vecRechit2DChamber->at(irechit);
-        rechit2d = Rechit2D(chamber,
-          Rechit(chamber, vecRechit2D_X_Center->at(irechit), vecRechit2D_X_Error->at(irechit), vecRechit2D_X_ClusterSize->at(irechit)),
-          Rechit(chamber, vecRechit2D_Y_Center->at(irechit), vecRechit2D_Y_Error->at(irechit), vecRechit2D_Y_ClusterSize->at(irechit))
-        );
-        detectorsTracker[chamber].mapRechit2D(&rechit2d); // apply local geometry
-        track.addRechit(rechit2d);
+      if (verbose) {
+          std::cout << "  #### Extrapolation on large detectors ####" << std::endl;
       }
-      track.fit();
+      /* Build track with all trackers */
+      trackerTracks.clear();
+      
+      /* Create all possible tracks,
+       * then keep only the track with the lowest chi squared: */
+ 
+      // Create unique array of chambers:
+      std::set<int> chambersUniqueSet(vecRechit2DChamber->begin(), vecRechit2DChamber->end());
+      std::vector<int> chambersUnique(chambersUniqueSet.begin(), chambersUniqueSet.end());
+      int nChambersInEvent = chambersUnique.size();
+      if (nChambersInEvent < 3) continue;
+      if (verbose) {
+          std::cout << "  There are " << nChambersInEvent << " trackers in the event: [";
+          for (auto c:chambersUnique) std::cout << " " << c;
+          std::cout << " ]" << std::endl;
+      }
+
+      // Divide the rechit indices in one vector per chamber:
+      std::vector<std::vector<int>> rechitIndicesPerChamber(nChambersInEvent);
+      for (int i=0; i<vecRechit2DChamber->size(); i++) {
+          chamber = vecRechit2DChamber->at(i);
+          int chamberIndex = std::find(chambersUnique.begin(), chambersUnique.end(), chamber) - chambersUnique.begin();
+          rechitIndicesPerChamber[chamberIndex].push_back(i);
+      }
+      if (verbose) {
+          for (int i=0; i<rechitIndicesPerChamber.size(); i++) {
+              std::cout << "    Chamber " << chambersUnique[i] << ": ";
+              for (auto rechitIndex:rechitIndicesPerChamber[i]) std::cout << rechitIndex << " ";
+              std::cout << std::endl;
+          }
+      }
+      // Create an array with an iterator for each chamber:
+      std::vector<std::vector<int>::iterator> iterators;
+      for (auto it=rechitIndicesPerChamber.begin(); it!=rechitIndicesPerChamber.end(); it++) {
+          iterators.push_back(it->begin());
+      }
+
+      // Skip event if too many spurious hits:
+      int nPossibleTracks = 1;
+      for (auto el:rechitIndicesPerChamber) nPossibleTracks *= el.size();
+      if (nPossibleTracks > 50) continue;
+      if (verbose) {
+          std::cout << "    There are " << nPossibleTracks << " possible tracks in the event..." << std::endl;
+      }
+
+      /* Create all possible rechit combinations per tracker
+       * using "odometer" method:
+       * https://stackoverflow.com/a/1703575
+       */
+      while (iterators[0] != rechitIndicesPerChamber[0].end()) {
+          // build the track with current rechit combination:
+          //std::this_thread::sleep_for(std::chrono::milliseconds(50));
+          Track2D trialTrack;
+          for (auto it:iterators) {
+              int rechitIndex = *it;
+              chamber = vecRechit2DChamber->at(rechitIndex);
+              rechit2d = Rechit2D(chamber,
+                  Rechit(chamber, vecRechit2D_X_Center->at(rechitIndex), vecRechit2D_X_Error->at(rechitIndex), vecRechit2D_X_ClusterSize->at(rechitIndex)),
+                  Rechit(chamber, vecRechit2D_Y_Center->at(rechitIndex), vecRechit2D_Y_Error->at(rechitIndex), vecRechit2D_Y_ClusterSize->at(rechitIndex))
+              );
+              detectorsTracker[chamber].mapRechit2D(&rechit2d); // apply local geometry
+              trialTrack.addRechit(rechit2d);
+          }
+          // build track and append it to the list:
+          trialTrack.fit();
+          if (!trialTrack.isValid()) {
+            trackChi2X = -1.;
+            trackChi2Y = -1.;
+          } else {
+            trackChi2X = trialTrack.getChi2ReducedX();
+            trackChi2Y = trialTrack.getChi2ReducedY();
+          }
+          trackerTracks.push_back(trialTrack);
+          if (verbose) {
+              std::cout << "    Built track with rechit IDs: ";
+              for (auto it:iterators) std::cout << *it << " ";
+              std::cout << " and chi2x " << trackChi2X << ", chi2y " << trackChi2Y << std::endl;
+          }
+          
+          iterators[nChambersInEvent-1]++; // always scan the least significant vector
+          for (int iChamber=nChambersInEvent-1; (iChamber>0) && (iterators[iChamber]==rechitIndicesPerChamber[iChamber].end()); iChamber--) {
+              // if a vector arrived at the end, restart from the beginning
+              // and increment the vector one level higher:
+              iterators[iChamber] = rechitIndicesPerChamber[iChamber].begin();
+              iterators[iChamber-1]++;
+          }
+      }
+      int bestTrackIndex = 0;
+      float bestTrackChi2 = 999;
+      int presentTrackChi2;
+      for (int i=0; i<trackerTracks.size(); i++) {
+          presentTrackChi2 = trackerTracks.at(i).getChi2ReducedX()+trackerTracks.at(i).getChi2ReducedY();
+          if (presentTrackChi2<bestTrackChi2) {
+              bestTrackIndex = i;
+              bestTrackChi2 = presentTrackChi2;
+          }
+      }
+      track = trackerTracks.at(bestTrackIndex);
+      if (verbose) {
+          std::cout << "    Found best track at index " << bestTrackIndex;
+          std::cout << " with chi2x " << track.getChi2ReducedX();
+          std::cout << " and chi2y " << track.getChi2ReducedY() << ". ";
+          std::cout << "Slope x " << track.getSlopeX() << ", intercept x " << track.getInterceptX() << ", ";
+          std::cout << "slope y " << track.getSlopeY() << ", intercept y " << track.getInterceptY();
+          std::cout << std::endl;
+      }
+
       if (!track.isValid()) {
         trackChi2X = -1.;
         trackChi2Y = -1.;
