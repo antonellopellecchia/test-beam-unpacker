@@ -133,6 +133,7 @@ class GEMUnpacker {
           //printf("OH %d\n",m_gebdata->InputID());
           
           oh = m_gebdata->InputID();
+          //if (oh==1) continue;
           
           if (verbose) {
               std::cout << "        " << "slot\toh\tvfat\tBC\tEC\teta\tchamber\tcrc\tdata" << std::endl;
@@ -170,7 +171,7 @@ class GEMUnpacker {
             }
 
             chamber = chamberMapping->to_chamber[slot][oh][vfatId];
-            //if (stripMappings.count(chamber)==0) return 0;
+            if (stripMappings.count(chamber)==0) continue;
             StripMapping *stripMapping = stripMappings.at(chamber);
             eta = stripMapping->to_eta[vfatId];
 
