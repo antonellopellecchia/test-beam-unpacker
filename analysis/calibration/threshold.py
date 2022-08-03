@@ -83,7 +83,7 @@ def main():
                     
         threshold_df = pd.DataFrame(threshold_tuples, columns=["oh", "vfat", "threshold", "counts", "rate"])
         threshold_df.to_csv(args.odir / "thresholds.log")
-        print(threshold_df)
+        print("OptoHybrid list:", threshold_df["oh"].unique())
 
         for oh in threshold_df["oh"].unique():
             
@@ -96,7 +96,11 @@ def main():
                 vfat = df["vfat"].iloc[0]
                 thresholds, counts, rate = df["threshold"], df["counts"], df["rate"]
 
-                threshold_ax = threshold_fig.add_subplot(3, 4, vfats_map[vfat]+1)
+                try:
+                    threshold_ax = threshold_fig.add_subplot(3, 4, vfats_map[vfat]+1)
+                except ValueError:
+                    print(f"No data for VFAT {vfat}, skipping...")
+                    return None
                 threshold_ax.plot(thresholds, rate, "o-")
                 threshold_ax.set_title(f"OH {oh} VFAT {vfat}")
                 threshold_ax.set_xlabel("THR_ARM_DAC")
@@ -110,7 +114,8 @@ def main():
             vfats_unique = threshold_df_oh["vfat"].unique()
             vfats_map = { vfat:i for i, vfat in enumerate(vfats_unique) }
 
-            threshold_fig = plt.figure(figsize=(12*4, 10*3))                            
+            threshold_fig = plt.figure(figsize=(12*4, 10*3))
+            print(threshold_df_oh)
             threshold_groups = threshold_df_oh.groupby(["vfat"])
             threshold_df = pd.DataFrame(threshold_groups.apply(plot_thresholds_vfat))
 
