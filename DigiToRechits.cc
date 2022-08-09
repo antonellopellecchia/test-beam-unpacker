@@ -80,6 +80,7 @@ int main (int argc, char** argv) {
 
   // digi variables
   int nhits;
+  int orbitNumber, bunchCounter, eventCounter;
   std::vector<int> *vecDigiChamber = new std::vector<int>(); // 0 to 3 for trackers, 4 and 5 for GE21 and ME0
   std::vector<int> *vecDigiEta = new std::vector<int>(); // even for x, odd for y
   std::vector<int> *vecDigiDirection = new std::vector<int>(); // 0 for x, 1 for y
@@ -124,12 +125,20 @@ int main (int argc, char** argv) {
   std::vector<Cluster> clustersInEvent;
 
   // digi variable branches
+  digiTree->SetBranchAddress("orbitNumber", &orbitNumber);
+  digiTree->SetBranchAddress("bunchCounter", &bunchCounter);
+  digiTree->SetBranchAddress("eventCounter", &eventCounter);
   digiTree->SetBranchAddress("nhits", &nhits);
   digiTree->SetBranchAddress("digiChamber", &vecDigiChamber);
   digiTree->SetBranchAddress("digiEta", &vecDigiEta);
   digiTree->SetBranchAddress("digiStrip", &vecDigiStrip);
   digiTree->SetBranchAddress("CH", &vecRawChannel);
   //digiTree->SetBranchAddress("digiDirection", &vecDigiDirection);
+
+  // event branches
+  rechitTree.Branch("orbitNumber", &orbitNumber);
+  rechitTree.Branch("eventCounter", &eventCounter);
+  rechitTree.Branch("bunchCounter", &bunchCounter);
 
   // cluster branches
   rechitTree.Branch("nclusters", &nclusters, "nclusters/I");

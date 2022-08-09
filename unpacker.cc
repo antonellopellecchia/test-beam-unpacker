@@ -108,6 +108,9 @@ class GEMUnpacker {
       runParameter = m_amcEvent->RunParameter();
       //std::cout << "Run parameter " << runParameter << std::endl;
       pulse_stretch = m_amcEvent->PULSE_STRETCH();
+      orbitNumber = m_amcEvent->Onum();
+      bunchCounter = m_amcEvent->BC();
+      eventCounter = m_amcEvent->EC();
 
       if (verbose) {
           std::cout << "    Run type " << (int) m_amcEvent->Rtype() << ", ";
@@ -241,6 +244,9 @@ class GEMUnpacker {
       TFile *hfile = new TFile(ofilename.c_str(), "RECREATE", "GEM Raw ROOT");
       TTree outputtree("outputtree", "outputtree");
 
+      outputtree.Branch("orbitNumber", &orbitNumber);
+      outputtree.Branch("bunchCounter", &bunchCounter);
+      outputtree.Branch("eventCounter", &eventCounter);
       outputtree.Branch("nhits", &nhits);
       outputtree.Branch("runParameter", &runParameter);
       outputtree.Branch("pulse_stretch", &pulse_stretch);
@@ -308,6 +314,7 @@ private:
     int nhits;
     int runParameter;
     int pulse_stretch;
+    int orbitNumber, bunchCounter, eventCounter;
     int l1a;
     std::vector<int> eventVecL1A;
     // raw variables
