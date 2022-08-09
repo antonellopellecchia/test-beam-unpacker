@@ -79,7 +79,7 @@ def analyze_rotation(prophits, rechits, eta, odir):
     multiple_rechits_filter = (~ak.is_none(eta))&(ak.std(eta, axis=1)>0)
     eta_multiple = eta[multiple_rechits_filter]
     residuals_x = prophits_x-rechits_x
-    good_events_filter = abs(prophits_y)<10
+    good_events_filter = abs(prophits_y)<100
     multiple_rechits_filter = (multiple_rechits_filter)&(good_events_filter)
 
     prophits_x_multiple = prophits_x[multiple_rechits_filter]
@@ -90,7 +90,7 @@ def analyze_rotation(prophits, rechits, eta, odir):
     """ Plot propagated positions only for multiple eta fired """
     rotation_fig, rotation_axs = plt.subplots(nrows=1, ncols=3, figsize=(39,9)) 
     rotation_axs[0].hist2d(
-        prophits_x_multiple, prophits_y_multiple, bins=(80,80), range=((-40,40),(-3,2.5))
+        prophits_x_multiple, prophits_y_multiple, bins=(80,80), range=((-40,40),(-50,50))
     )
 
     rotation_axs[0].set_xlabel("Propagated x (mm)")
@@ -149,6 +149,7 @@ def main():
         # 1D branches:
         track_x_chi2 = track_tree["trackChi2X"].array(entry_stop=args.events)
         track_y_chi2 = track_tree["trackChi2Y"].array(entry_stop=args.events)
+        track_allchi2 = track_tree["allChi2"].array(entry_stop=args.events)
         rechits_chamber = track_tree["rechitChamber"].array(entry_stop=args.events)
         prophits_chamber = track_tree["prophitChamber"].array(entry_stop=args.events)
         prophits_eta = track_tree["prophitEta"].array(entry_stop=args.events)
@@ -207,8 +208,8 @@ def main():
         raw_channel = raw_channel[rechits_chamber==ge21_chamber]
         rechits_cluster_center = rechits_cluster_center[rechits_chamber==ge21_chamber]
 
-        """ Choose only events within a (-30,30) mm window """
-        prophit_window_mask = (abs(prophits_x)<30)&(abs(prophits_y)<30)
+        """ Choose only events within a (-50,50) mm window """
+        prophit_window_mask = (abs(prophits_x)<50)&(abs(prophits_y)<50)
         #prophit_window_mask = (abs(prophits_x)<100)&(abs(prophits_y)<100)
         #prophit_window_mask = (abs(prophits_x)<1000)&(abs(prophits_y)<1000)
         prophits_x, prophits_y = prophits_x[prophit_window_mask], prophits_y[prophit_window_mask]
@@ -257,10 +258,14 @@ def main():
             )
 
         chi2_fig, chi2_ax = plt.figure(figsize=(12,9)), plt.axes()
-        chi2_ax.hist(track_x_chi2, color="red", label="$χ^2_x$", alpha=0.5, range=(0,50), bins=100)
-        chi2_ax.hist(track_y_chi2, color="blue", label="$χ^2_y$", alpha=0.5, range=(0,50), bins=100)
+        chi2_range, chi2_bins = (0,10), 80
+        print("All chi2:", track_allchi2)
+        #chi2_ax.hist(track_x_chi2, color="green", label="$χ^2_x$", alpha=0.5, range=chi2_range, bins=chi2_bins)
+        #chi2_ax.hist(track_y_chi2, color="blue", label="$χ^2_y$", alpha=0.5, range=chi2_range, bins=chi2_bins)
+        chi2_ax.hist(track_x_chi2+track_y_chi2, color="purple", label="best track $χ^2$", alpha=0.5, range=chi2_range, bins=chi2_bins)
+        chi2_ax.hist(ak.flatten(track_allchi2), color="red", label="discarded track $χ^2$", alpha=0.5, range=chi2_range, bins=chi2_bins)
         chi2_ax.set_xlabel("reduced $χ^2$")
-        chi2_ax.set_yscale("log")
+        #chi2_ax.set_yscale("log")
         chi2_ax.legend()
         chi2_fig.savefig(args.odir / "chi2.png")
 
@@ -377,7 +382,7 @@ def main():
         #residual_fig, residual_axs = plt.subplots(ncols=len(etas), nrows=1, figsize=(12*len(etas),9))
         residual_fig, residual_ax = plt.figure(figsize=(12,9)), plt.axes()
 
-        residuals_range, residuals_bins = (-30, 30), 400
+        residuals_range, residuals_bins = (0, 100), 500
         residuals_binning = (residuals_range[1]-residuals_range[0])/residuals_bins
 
         efficiency_tuples = list()
@@ -385,7 +390,7 @@ def main():
         #for ieta,eta in enumerate(etas):
         #residuals_eta = residuals_x[rechits_eta==eta]
 
-        residuals_eta = residuals_x
+        residuals_eta = residuals_x[rechits_eta==2]
         mean_residual = ak.mean(residuals_eta)
         mean_residual = 0
         mask_track_matching = abs(residuals_eta - mean_residual) < residual_cut

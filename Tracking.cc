@@ -123,7 +123,7 @@ int main (int argc, char** argv) {
         for (int itracker=0; itracker<3; itracker++) {
             detectorsTracker[itracker].setPosition(trackerCorrectionsX[itracker], trackerCorrectionsY[itracker], trackerZ[itracker], trackerAngles[itracker]);
         }
-        detectorsLarge[0].setPosition(23.87, 0., 0., -18.31e-3);//3.1415227);
+        detectorsLarge[0].setPosition(0., 0., 0., 0.);//3.1415227);
     } else {
         std::cout << "Geometry \"" << geometry << "\" not supported." << std::endl;
         return -1;
@@ -136,6 +136,7 @@ int main (int argc, char** argv) {
     
     // rechit variables
     int nrechits;
+    int orbitNumber, bunchCounter, eventCounter;
     std::vector<int> *vecRechitChamber = new std::vector<int>();
     std::vector<int> *vecRechitEta = new std::vector<int>();
     std::vector<double> *vecRechitX = new std::vector<double>();
@@ -154,6 +155,12 @@ int main (int argc, char** argv) {
     std::vector<double> *vecRechit2D_Y_Error = new std::vector<double>();
     std::vector<double> *vecRechit2D_X_ClusterSize = new std::vector<double>();
     std::vector<double> *vecRechit2D_Y_ClusterSize = new std::vector<double>();
+    
+    // event branches
+    rechitTree->SetBranchAddress("orbitNumber", &orbitNumber);
+    rechitTree->SetBranchAddress("bunchCounter", &bunchCounter);
+    rechitTree->SetBranchAddress("eventCounter", &eventCounter);
+    
     // rechit branches
     rechitTree->SetBranchAddress("nrechits", &nrechits);
     rechitTree->SetBranchAddress("rechitChamber", &vecRechitChamber);
@@ -202,6 +209,7 @@ int main (int argc, char** argv) {
     double trackCovarianceX, trackCovarianceY;
     double trackSlopeX, trackSlopeY;
     double trackInterceptX, trackInterceptY;
+    std::vector<double> allChi2;
     std::vector<double> rechitsEta;
     std::vector<double> rechitsLocalX;
     std::vector<double> rechitsLocalY;
@@ -225,6 +233,11 @@ int main (int argc, char** argv) {
     double rechitX_clusterSize, rechitY_clusterSize;
     double prophitX, prophitY;
     double propErrorX, propErrorY;
+
+    // event branches
+    trackTree.Branch("orbitNumber", &orbitNumber);
+    trackTree.Branch("bunchCounter", &bunchCounter);
+    trackTree.Branch("eventCounter", &eventCounter);
 
     // track branches
     trackTree.Branch("tracks_X_chi2", &tracks_X_chi2);
@@ -254,6 +267,7 @@ int main (int argc, char** argv) {
     trackTree.Branch("trackChi2Y", &trackChi2Y, "trackChi2Y/D");
     trackTree.Branch("trackCovarianceX", &trackCovarianceX, "trackCovarianceX/D");
     trackTree.Branch("trackCovarianceY", &trackCovarianceY, "trackCovarianceY/D");
+    trackTree.Branch("allChi2", &allChi2);
     trackTree.Branch("trackSlopeX", &trackSlopeX, "trackSlopeX/D");
     trackTree.Branch("trackSlopeY", &trackSlopeY, "trackSlopeY/D");
     trackTree.Branch("trackInterceptX", &trackInterceptX, "trackInterceptX/D");
@@ -439,6 +453,7 @@ int main (int argc, char** argv) {
       }
       /* Build track with all trackers */
       trackerTracks.clear();
+      allChi2.clear();
       
       /* Create all possible tracks,
        * then keep only the track with the lowest chi squared: */
@@ -489,7 +504,7 @@ int main (int argc, char** argv) {
       while (iterators[0] != rechitIndicesPerChamber[0].end()) {
           // build the track with current rechit combination:
           //std::this_thread::sleep_for(std::chrono::milliseconds(50));
-          Track2D trialTrack;
+          Track2D testTrack;
           for (auto it:iterators) {
               int rechitIndex = *it;
               chamber = vecRechit2DChamber->at(rechitIndex);
@@ -498,18 +513,19 @@ int main (int argc, char** argv) {
                   Rechit(chamber, vecRechit2D_Y_Center->at(rechitIndex), vecRechit2D_Y_Error->at(rechitIndex), vecRechit2D_Y_ClusterSize->at(rechitIndex))
               );
               detectorsTracker[chamber].mapRechit2D(&rechit2d); // apply local geometry
-              trialTrack.addRechit(rechit2d);
+              testTrack.addRechit(rechit2d);
           }
           // build track and append it to the list:
-          trialTrack.fit();
-          if (!trialTrack.isValid()) {
+          testTrack.fit();
+          if (!testTrack.isValid()) {
             trackChi2X = -1.;
             trackChi2Y = -1.;
           } else {
-            trackChi2X = trialTrack.getChi2ReducedX();
-            trackChi2Y = trialTrack.getChi2ReducedY();
+            trackChi2X = testTrack.getChi2ReducedX();
+            trackChi2Y = testTrack.getChi2ReducedY();
           }
-          trackerTracks.push_back(trialTrack);
+          trackerTracks.push_back(testTrack);
+          allChi2.push_back(trackChi2X + trackChi2Y);
           if (verbose) {
               std::cout << "    Built track with rechit IDs: ";
               for (auto it:iterators) std::cout << *it << " ";
@@ -525,16 +541,18 @@ int main (int argc, char** argv) {
           }
       }
       int bestTrackIndex = 0;
-      float bestTrackChi2 = 999;
-      int presentTrackChi2;
+      double bestTrackChi2 = 999;
+      double presentTrackChi2;
       for (int i=0; i<trackerTracks.size(); i++) {
-          presentTrackChi2 = trackerTracks.at(i).getChi2ReducedX()+trackerTracks.at(i).getChi2ReducedY();
+          //presentTrackChi2 = trackerTracks.at(i).getChi2ReducedX()+trackerTracks.at(i).getChi2ReducedY();
+          presentTrackChi2 = allChi2.at(i);
           if (presentTrackChi2<bestTrackChi2) {
               bestTrackIndex = i;
               bestTrackChi2 = presentTrackChi2;
           }
       }
       track = trackerTracks.at(bestTrackIndex);
+      allChi2.erase(allChi2.begin() + bestTrackIndex);
       if (verbose) {
           std::cout << "    Found best track at index " << bestTrackIndex;
           std::cout << " with chi2x " << track.getChi2ReducedX();
