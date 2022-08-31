@@ -90,7 +90,7 @@ def analyze_rotation(prophits, rechits, eta, odir):
     """ Plot propagated positions only for multiple eta fired """
     rotation_fig, rotation_axs = plt.subplots(nrows=1, ncols=3, figsize=(39,9)) 
     rotation_axs[0].hist2d(
-        prophits_x_multiple, prophits_y_multiple, bins=(80,80), range=((-40,40),(-50,50))
+        prophits_x_multiple, prophits_y_multiple, bins=(80,80), range=((-100,100),(-100,100))
     )
 
     rotation_axs[0].set_xlabel("Propagated x (mm)")
@@ -121,7 +121,7 @@ def analyze_rotation(prophits, rechits, eta, odir):
             color="red"
     )
     rotation_axs[1].legend()
-    rotation_axs[1].set_ylim(-3, 2)
+    #rotation_axs[1].set_ylim(-3, 2)
     hep.cms.text(text="Preliminary", ax=rotation_axs[1])
     rotation_axs[1].set_xlabel("Propagated local x (mm)")
     rotation_axs[1].set_ylabel("Propagated local y (mm)")
