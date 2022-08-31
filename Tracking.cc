@@ -103,8 +103,8 @@ int main (int argc, char** argv) {
         detectorsTracker.push_back(DetectorTracker(3, 2, 89.5, 89.5, 358));
         detectorsTracker.push_back(DetectorTracker(3, 3, 89.5, 89.5, 358));
         detectorsLarge.push_back(DetectorLarge(0, 4, 488.8, 628.8, 390.9, 4, 384)); // ge21
-        detectorsLarge.push_back(DetectorLarge(0, 5, 127.584, 434.985, 868.18, 8, 384)); // me0 blank
-        detectorsLarge.push_back(DetectorLarge(1, 6, 127.584, 434.985, 868.18, 8, 384)); // me0 random
+        detectorsLarge.push_back(DetectorLarge(0, 5, 235.2, 460, 787.9, 8, 384)); // me0 blank
+        detectorsLarge.push_back(DetectorLarge(1, 6, 235.2, 460, 787.9, 8, 384)); // me0 random
 
         std::array<double,4> trackerZ={ -(697+254+294), -(254+294), 170, 170+697 };
         for (int itracker=0; itracker<4; itracker++) {
@@ -117,7 +117,7 @@ int main (int argc, char** argv) {
         detectorsTracker.push_back(DetectorTracker(0, 0, 100., 100., 256));
         detectorsTracker.push_back(DetectorTracker(0, 1, 100., 100., 256));
         detectorsTracker.push_back(DetectorTracker(0, 2, 100., 100., 256));
-        detectorsLarge.push_back(DetectorLarge(0, 3, 127.584, 434.985, 868.18, 8, 384)); // me0 blank
+        detectorsLarge.push_back(DetectorLarge(0, 3, 235.2, 460, 787.9, 8, 384)); // me0 blank
 
         std::array<double,3> trackerZ={ -40, -20, +40 };
         for (int itracker=0; itracker<3; itracker++) {
