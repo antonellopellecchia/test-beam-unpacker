@@ -104,7 +104,7 @@ def main():
 
         latency_fig, latency_ax = plt.figure(figsize=(12,10)), plt.axes() 
         latency_ax.bar(latency_df["latency"], latency_df["counts"], width=2, alpha=0.4)
-        latency_ax.set_xlim(30, 80)
+        latency_ax.set_xlim(10, 100)
         latency_ax.set_xlabel("Latency (BX)")
         latency_ax.set_ylabel("Counts")
         latency_fig.savefig(args.odir / "latency.png")
@@ -125,7 +125,7 @@ def main():
             latency_ax = latency_figs[oh].add_subplot(6, 4, vfat+1)
             print("oh {}, vfat {}, optimal latency {}".format(oh, vfat, optimal_latency))
             latency_ax.bar(latencies, counts, width=1, alpha=0.4, label=f"{optimal_latency} BX".format(optimal_latency))
-            latency_ax.set_xlim(30, 80)
+            latency_ax.set_xlim(10, 100)
             latency_ax.set_xlabel("Latency (BX)")
             latency_ax.set_ylabel("Counts")
             latency_ax.set_title("OH {}, VFAT {}".format(oh, vfat))

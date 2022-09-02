@@ -41,6 +41,7 @@ def main():
             list_slots = np.unique(ak.flatten(slots, axis=None))
             list_oh = np.unique(ak.flatten(ohs, axis=None))
             list_vfat = np.unique(ak.flatten(vfats, axis=None))
+            list_channels = np.unique(ak.flatten(channels, axis=None))
 
             rate_tuples = list()
 
@@ -61,15 +62,23 @@ def main():
                     for vfat in list_vfat:
 
                         channels_vfat = channels_oh[vfats_oh==vfat]
+
                         multiplicities = ak.sum(channels_vfat, axis=1)
                         event_count = ak.count_nonzero(multiplicities)
                         event_rate = event_count / (total_triggers * (args.pulse_stretch+1) * 25e-9)
                         event_rate_error = np.sqrt(event_count) / (total_triggers * (args.pulse_stretch+1) * 25e-9)
                         if args.verbose: print("slot {}, oh {}, vfat {}, count {}; rate {}".format(slot, oh, vfat, event_count, event_rate))
-                        rate_tuples.append((slot, oh, vfat, event_count, event_rate, event_rate_error, total_triggers))
-                        
-            rate_df = pd.DataFrame(rate_tuples, columns=["slot", "oh", "vfat", "counts", "rate", "rate_error", "triggers"])
-            #rate_df.to_csv(args.odir / "rate.log")
+
+                        for channel in list_channels:
+                            event_count = ak.count_nonzero(channels_vfat==channel)
+                            event_rate = event_count / (total_triggers * (args.pulse_stretch+1) * 25e-9)
+                            event_rate_error = np.sqrt(event_count) / (total_triggers * (args.pulse_stretch+1) * 25e-9)
+                            if args.verbose: print("slot {}, oh {}, vfat {}, channel {}, count {}; rate {}".format(slot, oh, vfat, channel, event_count, event_rate))
+                            rate_tuples.append((slot, oh, vfat, channel, event_count, event_rate, event_rate_error, total_triggers))
+
+            rate_df = pd.DataFrame(rate_tuples, columns=["slot", "oh", "vfat", "channel", "counts", "rate", "rate_error", "triggers"])
+            rate_df.to_csv(args.ofile, sep=";")
+            return
 
     elif args.method == "sbit":
 

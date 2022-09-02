@@ -96,6 +96,7 @@ configure_file(analysis/scans/efficiency.py analysis/scans/efficiency.py COPYONL
 configure_file(analysis/calibration/latency.py analysis/calibration/latency.py COPYONLY)
 configure_file(analysis/calibration/threshold.py analysis/calibration/threshold.py COPYONLY)
 configure_file(analysis/calibration/rate.py analysis/calibration/rate.py COPYONLY)
+configure_file(analysis/calibration/ratecapability.py analysis/calibration/ratecapability.py COPYONLY)
 
 configure_file(scripts/alignment/angles.sh scripts/alignment/angles.sh COPYONLY)
 configure_file(scripts/alignment/translation.sh scripts/alignment/translation.sh COPYONLY)
