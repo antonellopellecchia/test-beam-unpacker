@@ -6,9 +6,13 @@ import numpy as np
 import pandas as pd
 from scipy.optimize import curve_fit
 
+import matplotlib as mpl
+mpl.use('Agg')
 import matplotlib.pyplot as plt
 import mplhep
 mplhep.set_style("ROOT")
+
+saturating_curve = lambda x, A, tau: (A*x) / (1 + tau*(A*x))
 
 def main():
 
@@ -23,6 +27,7 @@ def main():
 
     os.makedirs(args.odir, exist_ok=True)
 
+    """ Read rate files and corresponding x-ray flux: """
     rate_dir = args.rundir #pathlib.Path("/home/gempro/testbeam/july2022/runs/rate-xray/daq-monitor")
     run_number = args.run_number
     run_dir = rate_dir / f"{run_number}/rates"
@@ -43,8 +48,7 @@ def main():
         print("Rate dataframe:")
         print(rate_df)
 
-    saturating_curve = lambda x, A, tau: (A*x) / (1 + tau*(A*x))
-
+    """ Fit with saturating curve and plot: """
     vfats = list(enumerate(rate_df["vfat"].unique()))
     vfat_index = dict(vfats)
     vfat_index = { v: k for k, v in vfat_index.items()}
@@ -81,6 +85,8 @@ def main():
     fig.tight_layout()
 
     rate_df.to_csv(args.odir / "rate.csv", sep=";")
+    if args.verbose: print("Rate csv file saved to", args.odir/"rate.csv")
     fig.savefig(args.odir / "rate.png")
+    if args.verbose: print("Rate plots saved to", args.odir/"rate.png")
 
 if __name__=="__main__": main()
