@@ -119,11 +119,16 @@ int main (int argc, char** argv) {
         detectorsTracker.push_back(DetectorTracker(0, 2, 100., 100., 256));
         detectorsLarge.push_back(DetectorLarge(0, 3, 235.2, 460, 787.9, 8, 384)); // me0 blank
 
-        std::array<double,3> trackerZ={ -40, -20, +40 };
+        trackerAngles[0] = 0; trackerAngles[1] = -0.5*3.1415227, trackerAngles[2] = 0;
+        trackerCorrectionsX[0] = 0; trackerCorrectionsX[1] = 0; trackerCorrectionsX[2] = 0;
+        trackerCorrectionsY[0] = 0; trackerCorrectionsY[1] = 0; trackerCorrectionsY[2] = 0;
+        
+        //std::array<double,3> trackerZ={ -40, -20, +40 };
+        std::array<double,3> trackerZ={ -285, -150, +155 };
         for (int itracker=0; itracker<3; itracker++) {
             detectorsTracker[itracker].setPosition(trackerCorrectionsX[itracker], trackerCorrectionsY[itracker], trackerZ[itracker], trackerAngles[itracker]);
         }
-        detectorsLarge[0].setPosition(0., 0., 0., 0.);//3.1415227);
+        detectorsLarge[0].setPosition(41.194, 690.46, 0., 4.29e-3);//3.1415227);
     } else {
         std::cout << "Geometry \"" << geometry << "\" not supported." << std::endl;
         return -1;
