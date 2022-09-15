@@ -12,6 +12,7 @@ include_directories($ENV{ANALYSIS_HOME}/include)
 set(sources
     $ENV{ANALYSIS_HOME}/src/StripMapping.cc
     $ENV{ANALYSIS_HOME}/src/ChamberMapping.cc
+    $ENV{ANALYSIS_HOME}/src/SetupGeometry.cc
     $ENV{ANALYSIS_HOME}/src/DataFrame.cc
     $ENV{ANALYSIS_HOME}/src/Track2D.cc
     $ENV{ANALYSIS_HOME}/src/Track.cc
@@ -81,6 +82,8 @@ configure_file(mapping/july2022/template.csv mapping/july2022/template.csv COPYO
 
 configure_file(mapping/generate.py mapping/generate.py COPYONLY)
 configure_file(mapping/vfat.csv mapping/vfat.csv COPYONLY)
+
+configure_file(geometry/july2022.csv geometry/july2022.csv COPYONLY)
 
 configure_file(analysis/residuals.py analysis/residuals.py COPYONLY)
 configure_file(analysis/occupancy.py analysis/occupancy.py COPYONLY)
