@@ -31,6 +31,7 @@
 #include "Track2D.h"
 #include "DetectorTracker.h"
 #include "DetectorLarge.h"
+#include "SetupGeometry.h"
 
 #include "progressbar.h"
 
@@ -114,7 +115,10 @@ int main (int argc, char** argv) {
         detectorsLarge[1].setPosition(0., 0., 0., 1.5707963267948966); // ME0 tilted by 90°
         detectorsLarge[2].setPosition(0., 0., 0., 1.5707963267948966);
    } else if (geometry == "july2022") {
-        detectorsTracker.push_back(DetectorTracker(0, 0, 100., 100., 256));
+        SetupGeometry setupGeometry("geometry/july2022.csv");
+        detectorsTracker = setupGeometry.detectorsTracker;
+        detectorsLarge = setupGeometry.detectorsLarge;
+        /*detectorsTracker.push_back(DetectorTracker(0, 0, 100., 100., 256));
         detectorsTracker.push_back(DetectorTracker(0, 1, 100., 100., 256));
         detectorsTracker.push_back(DetectorTracker(0, 2, 100., 100., 256));
         detectorsLarge.push_back(DetectorLarge(0, 3, 235.2, 460, 787.9, 8, 384)); // me0 blank
@@ -128,7 +132,7 @@ int main (int argc, char** argv) {
         for (int itracker=0; itracker<3; itracker++) {
             detectorsTracker[itracker].setPosition(trackerCorrectionsX[itracker], trackerCorrectionsY[itracker], trackerZ[itracker], trackerAngles[itracker]);
         }
-        detectorsLarge[0].setPosition(41.194, 690.46, 0., 4.29e-3);//3.1415227);
+        detectorsLarge[0].setPosition(41.194, 690.46, 0., 4.29e-3);//3.1415227);*/
     } else {
         std::cout << "Geometry \"" << geometry << "\" not supported." << std::endl;
         return -1;

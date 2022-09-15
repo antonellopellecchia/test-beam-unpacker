@@ -14,6 +14,7 @@
 #include "DetectorTracker.h"
 #include "DetectorLarge.h"
 #include "Rechit2D.h"
+#include "SetupGeometry.h"
 
 #include "progressbar.h"
 
@@ -67,10 +68,9 @@ int main (int argc, char** argv) {
       detectorsLarge.push_back(DetectorLarge(0, 5, 235.2, 460, 787.9, 8, 384)); // me0 blank
       detectorsLarge.push_back(DetectorLarge(1, 6, 235.2, 460, 787.9, 8, 384)); // me0 random
   } else if (geometry == "july2022") {
-      detectorsTracker.push_back(DetectorTracker(0, 0, 100., 100., 256));
-      detectorsTracker.push_back(DetectorTracker(0, 1, 100., 100., 256));
-      detectorsTracker.push_back(DetectorTracker(0, 2, 100., 100., 256));
-      detectorsLarge.push_back(DetectorLarge(0, 3, 235.2, 460, 787.9, 8, 384)); // me0 blank
+      SetupGeometry setupGeometry("geometry/july2022.csv");
+      detectorsTracker = setupGeometry.detectorsTracker;
+      detectorsLarge = setupGeometry.detectorsLarge;
   } else {
       std::cout << "Geometry \"" << geometry << "\" not supported." << std::endl;
       return -1;
