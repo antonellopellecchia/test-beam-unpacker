@@ -6,6 +6,7 @@
 #include <sstream>
 #include <iterator>
 #include <algorithm>
+#include <stdexcept>
 
 #include "DataFrame.h"
 
@@ -55,6 +56,14 @@ DataFrame DataFrame::fromCsv(std::string path) {
 	}
 	csvFile.close();
 	return DataFrame(colNames, elements);
+}
+
+std::string DataFrame::getElement(std::string column, int row) {
+    if (fElements.count(column)>0) {
+        return fElements[column][row];
+    } else {
+        throw std::out_of_range(std::string("Column '" + column + "' does not exist in dataframe"));
+    }
 }
 
 void DataFrame::print() {
