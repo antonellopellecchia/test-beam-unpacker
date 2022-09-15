@@ -1,5 +1,5 @@
 chamber,label,type,width,widthLarge,height,eta,strips,x,y,z,angle
-0,tracker0,tracker,10,0,10,2,256,0,0,-285,0
-1,tracker1,tracker,10,0,10,2,256,0,0,-150,-1.570796
-2,tracker2,tracker,10,0,10,2,256,0,0,+155,0
-3,me0,large,235.2,460,787.9,8,384,41.194,0.,0.,8.56e-3
+0,tracker0,tracker,100,0,100,2,256,0,0,-285,0
+1,tracker1,tracker,100,0,100,2,256,0,0,-150,-1.570796
+2,tracker2,tracker,100,0,100,2,256,0,0,+155,0
+3,me0,large,235.2,460,787.9,8,384,41.194,0.,0.,4.29e-3
