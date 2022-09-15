@@ -7,6 +7,7 @@
 #include <iterator>
 #include <algorithm>
 #include <stdexcept>
+#include <iomanip>
 
 #include "DataFrame.h"
 
@@ -67,13 +68,13 @@ std::string DataFrame::getElement(std::string column, int row) {
 }
 
 void DataFrame::print() {
-	for (auto colName:fColumnNames) std::cout << colName << "\t";
+	for (auto colName:fColumnNames) std::cout << std::setw(10) << colName << "\t";
 	std::cout << std::endl;
 
 	int minRows = getNRows();
 	if (minRows>10) minRows = 10;
 	for (int irow=0; irow<minRows; irow++) {
-		for (auto colName:fColumnNames) std::cout << fElements[colName][irow] << "\t";
+		for (auto colName:fColumnNames) std::cout << std::setw(10) << fElements[colName][irow] << "\t";
 		std::cout << std::endl;
 	}
 }
