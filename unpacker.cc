@@ -428,8 +428,8 @@ int main (int argc, char** argv) {
       return -1;
   }
 
+  chamberMapping.print();
   if (verbose) {
-      //chamberMapping.print();
       /*for (auto stripMapping:stripMappings) {
           std::cout << "Chamber " << stripMapping.first << std::endl;
           stripMapping.second->print();
