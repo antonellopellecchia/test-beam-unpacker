@@ -26,6 +26,8 @@ def main():
     parser.add_argument("--efficiency", type=pathlib.Path, nargs="+", help="Save fast efficiency to file")
     parser.add_argument("--latency-cut", type=int, help="Plot separately for different latencies")
     parser.add_argument("--compact", action="store_true", help="Plot all eta with shared x axis")
+    parser.add_argument("--check-mapping", action="store_true", help="CSV file for strip mapping to check")
+    parser.add_argument("--by-event", type=int, help="Plot strip occupancy vs event number for the first n events")
     parser.add_argument("--ylim", type=int)
     parser.add_argument("-v", "--verbose", action="store_true", help="Activate logging")
     args = parser.parse_args()
@@ -44,8 +46,8 @@ def main():
         digi_eta = digi_tree["digiEta"].array(entry_start=args.start,entry_stop=args.start+args.events)
         digi_strip = digi_tree["digiStrip"].array(entry_start=args.start,entry_stop=args.start+args.events)
 
-        for channel in range(128):
-            print(channel, ak.count_nonzero(ak.flatten(digi_channel==channel)))
+        """for channel in range(128):
+            print(channel, ak.count_nonzero(ak.flatten(digi_channel==channel)))"""
 
         if args.latency_cut:
             latencies = digi_tree["runParameter"].array(entry_start=args.start,entry_stop=args.start+args.events)
@@ -77,7 +79,7 @@ def main():
             event_count_chamber = list()
 
         if args.raw:
-            """ Plot occupancy per strip, i.e. after mapping """
+            """ Plot occupancy per channel, i.e. before mapping """
             for slot in np.unique(ak.flatten(digi_slot)):
 
                 slot_filter = digi_slot==slot
@@ -160,14 +162,17 @@ def main():
                 good_events = ak.count_nonzero(strips_per_event)
                 event_count_chamber.append( (chamber, good_events) )
 
+                for strip in range(0, 385):
+                    print(strip, ak.count_nonzero(chamber_strips==strip))
+
             etas = np.unique(ak.flatten(digi_eta[chamber_filter]))
             if not args.compact: occupancy_fig, occupancy_axs = plt.subplots(figsize=(12*len(etas),10), ncols=len(etas), nrows=1)
             else: occupancy_fig, occupancy_axs = plt.subplots(figsize=(10,6*len(etas)), nrows=len(etas), ncols=1, sharex=True)
 
-            for strip in range(0, 385):
-                print(strip, ak.count_nonzero(chamber_strips==strip))
+            if args.by_event: event_fig, event_axs = plt.subplots(figsize=(11*len(etas),9), ncols=len(etas), nrows=1)
 
             for ieta,eta in enumerate(etas):
+
                 #if eta>3: break
                 occupancy_ax = occupancy_axs[ieta]
                 occupancy_ax.set_xlabel("Strip")
@@ -175,6 +180,7 @@ def main():
                 filtered_strips = ak.flatten(digi_strip[(chamber_filter)&(eta_filter)])
                 filtered_oh = ak.flatten(digi_oh[(chamber_filter)&(eta_filter)])
                 filtered_vfat = ak.flatten(digi_vfat[(chamber_filter)&(eta_filter)])
+                filtered_channels = ak.flatten(digi_channel[(chamber_filter)&(eta_filter)])
 
                 if args.verbose: print(f"chamber {chamber}, eta {eta}, strips:", filtered_strips)
                 
@@ -182,7 +188,59 @@ def main():
                
                 oh = np.unique(filtered_oh)[0]
                 vfats = np.unique(filtered_vfat)
-                
+
+                if args.check_mapping:
+                    """ Print strip, channel and count to check missing channels from mapping """
+                    for strip in range(256):
+                        strip_filter = filtered_strips==strip
+                        strip_occupancy = ak.count_nonzero(strip_filter, axis=0)
+                        channels_for_strip = filtered_channels[strip_filter]
+                        channel, err_channel = ak.mean(channels_for_strip), ak.std(channels_for_strip)
+                        if strip_occupancy == 0 or err_channel !=0:
+                            print(f"Found OH {oh}, chamber {chamber}, eta {eta}, strip {strip}: channel {channel} ± {err_channel:1.2f}, occupancy {strip_occupancy}")
+                            if err_channel > 0:
+                                # multiple channels for a single strip, print them to check what's happening...
+                                print(f"Multiple channels for strip {strip}:", np.unique(channels_for_strip))
+
+                    """ Do the same in a channel-by-channel fashion """
+                    for vfat in vfats:
+                        for channel in range(128):
+                            filtered_channels_vfat = filtered_channels[filtered_vfat==vfat]
+                            filtered_strips_vfat = filtered_strips[filtered_vfat==vfat]
+                            
+                            channel_filter = filtered_channels_vfat==channel
+                            channel_occupancy = ak.count_nonzero(channel_filter, axis=0)
+                            strips_for_channel = filtered_strips_vfat[channel_filter]
+                            strip, err_strip = ak.mean(strips_for_channel), ak.std(strips_for_channel)
+
+                            if channel_occupancy == 0 or err_strip !=0:
+                                print(f"Found OH {oh}, chamber {chamber}, eta {eta}, channel: {channel}: strip {strip} ± {err_strip:1.2f}, occupancy {channel_occupancy}")
+                                if err_strip > 0: print(f"Multiple strips for channel {channel}:", np.unique(strips_for_channel))
+                            elif args.verbose:
+                                print(f"Found OH {oh}, chamber {chamber}, eta {eta}, channel: {channel}: strip {strip} ± {err_strip:1.2f}, occupancy {channel_occupancy}")
+
+                if args.by_event:
+                    n_events = args.by_event
+                    event_ax = event_axs[ieta]
+
+                    forplot_strips = digi_strip[(chamber_filter)&(eta_filter)][:n_events]
+                    n_strips = ak.max(forplot_strips)
+                    strip_range = np.arange(n_strips)
+                    event_range = np.arange(len(forplot_strips))
+                    event_broad, _ = ak.broadcast_arrays(event_range, forplot_strips)
+                    if args.verbose:
+                        print(f"{n_events} events, {n_strips} strips")
+                        print("Broadcasted index:", ak.flatten(event_broad))
+                        print("Strips:", ak.flatten(forplot_strips))
+                    event_ax.hist2d(
+                        ak.flatten(forplot_strips, axis=None).to_numpy(),
+                        ak.flatten(event_broad, axis=None).to_numpy(),
+                        bins=(n_strips,n_events),
+                        range=[(0.5,n_strips+0.5),(0.5,n_events+0.5)]
+                    )
+                    event_ax.set_xlabel("Strip")
+                    event_ax.set_ylabel("Event number")
+
                 nbins = 128*3
                 binrange = (0.5,384.5)
  
@@ -200,7 +258,10 @@ def main():
                             filtered_strips_vfat = filtered_strips[filtered_vfat==vfat]
                             if args.verbose: print(f"  chamber {chamber}, eta {eta}, VFAT {vfat}, strips:", filtered_strips_vfat)
                             occupancy_ax.hist(filtered_strips_vfat, bins=nbins, range=binrange, label="OH {}, VFAT {}".format(oh, vfat), alpha=0.5)
+
                 else:
+                    """ Plot separately occupancy for different latency peaks
+                    Useful for cross-talk in latency scans """
                     filtered_latency = ak.flatten(digi_latency[(chamber_filter)&(eta_filter)])
                     if args.verbose: print(f"  chamber {chamber}, eta {eta}, VFAT {vfat}, strips:", filtered_strips)
                     occupancy_ax.hist(filtered_strips[filtered_latency<args.latency_cut], bins=nbins, range=binrange, label=f"latency < {args.latency_cut}", alpha=0.4)
@@ -210,7 +271,9 @@ def main():
                 if not args.compact:
                     occupancy_ax.legend()
                     occupancy_ax.set_title("chamber {}, eta {}".format(chamber, eta)) 
-            occupancy_fig.savefig(args.odir / f"occupancy_chamber{chamber}_eta{eta}.png")
+
+            occupancy_fig.savefig(args.odir / f"occupancy_chamber{chamber}.png")
+            if args.by_event: event_fig.savefig(args.odir / f"events_chamber{chamber}.png")
         
         if args.efficiency: # save efficiency per chamber
             efficiency_df = pd.DataFrame(event_count_chamber, columns=["chamber", "fired"])
