@@ -87,6 +87,7 @@ configure_file(geometry/july2022.csv geometry/july2022.csv COPYONLY)
 
 configure_file(analysis/residuals.py analysis/residuals.py COPYONLY)
 configure_file(analysis/occupancy.py analysis/occupancy.py COPYONLY)
+configure_file(analysis/profile.py analysis/profile.py COPYONLY)
 configure_file(analysis/efficiency.py analysis/efficiency.py COPYONLY)
 configure_file(analysis/ge21.py analysis/ge21.py COPYONLY)
 configure_file(analysis/strips.py analysis/strips.py COPYONLY)
