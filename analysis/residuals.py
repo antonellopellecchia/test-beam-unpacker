@@ -82,6 +82,7 @@ def main():
     parser.add_argument("ifile", type=pathlib.Path, help="Input file")
     parser.add_argument('odir', type=pathlib.Path, help="Output directory")
     parser.add_argument("-n", "--events", type=int, default=-1, help="Number of events to analyse")
+    parser.add_argument("--by-cluster-size", action="store_true", help="Plot profile as 2D plot with cluster size")
     parser.add_argument("-v", "--verbose", action="store_true", help="Activate logging")
     args = parser.parse_args()
     
@@ -168,8 +169,23 @@ def main():
                 space_resolutions[direction], err_space_resolutions[direction] = list(), list()
                 cluster_size = cluster_sizes[idirection]
 
-                profile_axs[idirection][tested_chamber].hist(rechits[idirection], bins=100)
-                profile_axs[idirection][tested_chamber].set_xlabel("Reconstructed x (mm)")
+                if args.by_cluster_size:
+                    """profile_axs[idirection][tested_chamber].hist2d(
+                        ak.to_numpy(rechits[idirection]),
+                        cluster_size, bins=(100,10),
+                        range=((ak.min(rechits[idirection]),ak.max(rechits[idirection])), (0, 10))
+                    )"""
+                    profile_axs[idirection][tested_chamber].plot(
+                        ak.to_numpy(rechits[idirection]),
+                        cluster_size, "."
+                    )
+
+                else:
+                    profile_axs[idirection][tested_chamber].hist(rechits[idirection], bins=100)
+
+                profile_axs[idirection][tested_chamber].set_xlabel(f"Reconstructed {direction} (mm)")
+                profile_axs[idirection][tested_chamber].set_ylabel("Cluster size")
+                profile_axs[idirection][tested_chamber].set_title(f"Tracker {tested_chamber}")
 
                 # plot propagated hits
                 prophits_axs[idirection][tested_chamber].hist(
