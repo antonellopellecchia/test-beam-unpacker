@@ -452,7 +452,7 @@ def main():
 
         #mean_residual = ak.mean(residuals_eta_flat)
         mean_residual = coeff[1]
-        residual_cut = 2.5 * coeff[2] # cut on 1 mm ~ 2 x measured residual sigma
+        residual_cut = 2.5 * abs(coeff[2]) # cut on 1 mm ~ 2 x measured residual sigma
         mask_track_matching = abs(residuals_eta - mean_residual) < residual_cut
         
         print("Residual - mean:", abs(residuals_eta - mean_residual))
