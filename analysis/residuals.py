@@ -108,8 +108,13 @@ def main():
         cluster_size_y = track_tree["rechits2D_Y_ClusterSize"].array(entry_stop=args.events)
         prophits_x_error = track_tree["prophits2D_X_Error"].array(entry_stop=args.events)
         prophits_y_error = track_tree["prophits2D_Y_Error"].array(entry_stop=args.events)
+
+        print(rechits_chamber)
+        chambers_unique = np.unique(ak.flatten(rechits_chamber))
+        print("Tracking chambers in tree:", chambers_unique)
+        n_chambers = len(chambers_unique)
+        print(n_chambers, "tracking chambers")
        
-        n_chambers = 3
         # choose only events with hits in all chambers:
         mask_nhits = ak.count_nonzero(rechits_chamber>=0, axis=1)>=n_chambers
         rechits_chamber = rechits_chamber[mask_nhits]
