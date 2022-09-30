@@ -106,27 +106,9 @@ int main (int argc, char** argv) {
         return -1;
     } else {
         // define detector geometries
-        if (geometry == "may2022") {
-            detectorsTracker.push_back(DetectorTracker(2, 0, 89.5, 89.5, 358));
-            detectorsTracker.push_back(DetectorTracker(2, 1, 89.5, 89.5, 358));
-            detectorsTracker.push_back(DetectorTracker(3, 2, 89.5, 89.5, 358));
-            detectorsTracker.push_back(DetectorTracker(3, 3, 89.5, 89.5, 358));
-            detectorsLarge.push_back(DetectorLarge(0, 4, 488.8, 628.8, 390.9, 4, 384)); // ge21
-            detectorsLarge.push_back(DetectorLarge(0, 5, 235.2, 460, 787.9, 8, 384)); // me0 blank
-            detectorsLarge.push_back(DetectorLarge(1, 6, 235.2, 460, 787.9, 8, 384)); // me0 random
-
-            std::array<double,4> trackerZ={ -(697+254+294), -(254+294), 170, 170+697 };
-            for (int itracker=0; itracker<4; itracker++) {
-                detectorsTracker[itracker].setPosition(trackerCorrectionsX[itracker], trackerCorrectionsY[itracker], trackerZ[itracker], trackerAngles[itracker]);
-            }
-            detectorsLarge[0].setPosition(0., 0., 0., 0.);
-            detectorsLarge[1].setPosition(0., 0., 0., 1.5707963267948966); // ME0 tilted by 90°
-            detectorsLarge[2].setPosition(0., 0., 0., 1.5707963267948966);
-        } else if (geometry == "july2022") {
-            SetupGeometry setupGeometry("geometry/july2022.csv");
-            detectorsTracker = setupGeometry.detectorsTracker;
-            detectorsLarge = setupGeometry.detectorsLarge;
-        }
+        SetupGeometry setupGeometry(geometryCsvPath);
+        detectorsTracker = setupGeometry.detectorsTracker;
+        detectorsLarge = setupGeometry.detectorsLarge;
     }
 
     const int nTrackers = detectorsTracker.size();

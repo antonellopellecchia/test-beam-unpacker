@@ -67,23 +67,12 @@ int main (int argc, char** argv) {
       return -1;
   } else {
       // define detector geometries
-      if (geometry == "may2022") {
-          detectorsTracker.push_back(DetectorTracker(2, 0, 89.5, 89.5, 358));
-          detectorsTracker.push_back(DetectorTracker(2, 1, 89.5, 89.5, 358));
-          detectorsTracker.push_back(DetectorTracker(3, 2, 89.5, 89.5, 358));
-          detectorsTracker.push_back(DetectorTracker(3, 3, 89.5, 89.5, 358));
-          detectorsLarge.push_back(DetectorLarge(0, 4, 488.8, 628.8, 390.9, 4, 384)); // ge21
-          detectorsLarge.push_back(DetectorLarge(0, 5, 235.2, 460, 787.9, 8, 384)); // me0 blank
-          detectorsLarge.push_back(DetectorLarge(1, 6, 235.2, 460, 787.9, 8, 384)); // me0 random
-      } else if (geometry == "july2022") {
-          SetupGeometry setupGeometry("geometry/july2022.csv");
-          detectorsTracker = setupGeometry.detectorsTracker;
-          detectorsLarge = setupGeometry.detectorsLarge;
-      }
+      SetupGeometry setupGeometry(geometryCsvPath);
+      detectorsTracker = setupGeometry.detectorsTracker;
+      detectorsLarge = setupGeometry.detectorsLarge;
   }
   
   int nTrackers = detectorsTracker.size();
-
   // digi variables
   int nhits;
   int orbitNumber, bunchCounter, eventCounter;
