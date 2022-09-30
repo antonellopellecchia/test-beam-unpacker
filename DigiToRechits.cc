@@ -1,5 +1,6 @@
 #include <cstdio>
 #include <iostream>
+#include <fstream>
 #include <cstdint>
 #include <vector>
 #include <array>
@@ -58,24 +59,29 @@ int main (int argc, char** argv) {
 
   std::vector<DetectorTracker> detectorsTracker;
   std::vector<DetectorLarge> detectorsLarge;
-  // define detector geometries
-  if (geometry == "may2022") {
-      detectorsTracker.push_back(DetectorTracker(2, 0, 89.5, 89.5, 358));
-      detectorsTracker.push_back(DetectorTracker(2, 1, 89.5, 89.5, 358));
-      detectorsTracker.push_back(DetectorTracker(3, 2, 89.5, 89.5, 358));
-      detectorsTracker.push_back(DetectorTracker(3, 3, 89.5, 89.5, 358));
-      detectorsLarge.push_back(DetectorLarge(0, 4, 488.8, 628.8, 390.9, 4, 384)); // ge21
-      detectorsLarge.push_back(DetectorLarge(0, 5, 235.2, 460, 787.9, 8, 384)); // me0 blank
-      detectorsLarge.push_back(DetectorLarge(1, 6, 235.2, 460, 787.9, 8, 384)); // me0 random
-  } else if (geometry == "july2022") {
-      SetupGeometry setupGeometry("geometry/july2022.csv");
-      detectorsTracker = setupGeometry.detectorsTracker;
-      detectorsLarge = setupGeometry.detectorsLarge;
-  } else {
+ 
+  std::string geometryCsvPath("geometry/"+geometry+".csv");
+  std::ifstream geometryFile(geometryCsvPath);
+  if (!geometryFile.good()) {
       std::cout << "Geometry \"" << geometry << "\" not supported." << std::endl;
       return -1;
+  } else {
+      // define detector geometries
+      if (geometry == "may2022") {
+          detectorsTracker.push_back(DetectorTracker(2, 0, 89.5, 89.5, 358));
+          detectorsTracker.push_back(DetectorTracker(2, 1, 89.5, 89.5, 358));
+          detectorsTracker.push_back(DetectorTracker(3, 2, 89.5, 89.5, 358));
+          detectorsTracker.push_back(DetectorTracker(3, 3, 89.5, 89.5, 358));
+          detectorsLarge.push_back(DetectorLarge(0, 4, 488.8, 628.8, 390.9, 4, 384)); // ge21
+          detectorsLarge.push_back(DetectorLarge(0, 5, 235.2, 460, 787.9, 8, 384)); // me0 blank
+          detectorsLarge.push_back(DetectorLarge(1, 6, 235.2, 460, 787.9, 8, 384)); // me0 random
+      } else if (geometry == "july2022") {
+          SetupGeometry setupGeometry("geometry/july2022.csv");
+          detectorsTracker = setupGeometry.detectorsTracker;
+          detectorsLarge = setupGeometry.detectorsLarge;
+      }
   }
-
+  
   int nTrackers = detectorsTracker.size();
 
   // digi variables
