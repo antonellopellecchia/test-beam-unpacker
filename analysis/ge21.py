@@ -250,6 +250,7 @@ def main():
             print("raw channel:", raw_channel)
             print("prophits global x:", prophits_x)
             print("prophits global y:", prophits_y)
+            print("rechits local x:", rechits_local_x)
             print("rechits global x:", rechits_x)
             print("rechits global y:", rechits_y)
             print("residuals x:", residuals_x)
@@ -394,7 +395,7 @@ def main():
         #residual_fig, residual_axs = plt.subplots(ncols=len(etas), nrows=1, figsize=(12*len(etas),9))
         residual_fig, residual_ax = plt.figure(figsize=(12,9)), plt.axes()
 
-        residuals_range, residuals_bins = (-60, 60), 100
+        residuals_range, residuals_bins = (-6000, 6000), 100
         residuals_binning = (residuals_range[1]-residuals_range[0])/residuals_bins
 
         efficiency_tuples = list()
