@@ -13,7 +13,7 @@ class DataFrame {
 
 	    std::string fPath;
 
-        DataFrame() {}
+        DataFrame();
 	    DataFrame(std::vector<std::string> colNames, std::map<std::string, std::vector<std::string>> elements);
 	    
 	    void print();
@@ -24,6 +24,8 @@ class DataFrame {
 	    std::map<std::string, std::vector<std::string>> fElements;
 	    
 		static DataFrame fromCsv(std::string path, std::string delimiter=",");
+
+        bool isEmpty = false;
 };
 
 #endif

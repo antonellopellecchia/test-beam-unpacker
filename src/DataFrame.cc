@@ -11,6 +11,10 @@
 
 #include "DataFrame.h"
 
+DataFrame::DataFrame() {
+    isEmpty = true;
+}
+
 DataFrame::DataFrame(std::vector<std::string> colNames, std::map<std::string, std::vector<std::string>> elements) {
 	fColumnNames = colNames;
 	fElements = elements;
