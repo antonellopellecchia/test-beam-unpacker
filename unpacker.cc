@@ -1,5 +1,6 @@
 #include <cstdio>
 #include <iostream>
+#include <fstream>
 #include <cstdint>
 #include <vector>
 #include <array>
@@ -9,13 +10,14 @@
 #include <TFile.h>
 #include <TTree.h>
 
+#include "DataFrame.h"
 #include "StripMapping.h"
 #include "ChamberMapping.h"
 #include "GEMAMCEventFormat.h"
 
 class GEMUnpacker {
   public:
-    GEMUnpacker(const std::vector<std::string> ifilenames, const std::string isFedKit, const std::string _ofilename, const int _every) {
+    GEMUnpacker(const std::vector<std::string> ifilenames, const std::string isFedKit, const std::string _ofilename, const int _every, DataFrame _mask) {
       try {
         for (auto ifilename:ifilenames)
           m_files.push_back(std::fopen(ifilename.c_str(), "rb"));
@@ -25,6 +27,7 @@ class GEMUnpacker {
       ofilename = _ofilename;
       m_isFedKit = isFedKit;
       every = _every;
+      maskDataFrame = _mask;
     }
 
     ~GEMUnpacker() {
@@ -350,6 +353,7 @@ private:
     std::string m_isFedKit;
     int every; // events to skip
 
+    DataFrame maskDataFrame;
     std::map<int, StripMapping*> stripMappings;
     ChamberMapping *chamberMapping;
     bool verbose=false, checkSyncronization=false;
@@ -428,6 +432,17 @@ int main (int argc, char** argv) {
       return -1;
   }
 
+  // if a channel ask file exists, use it:
+  DataFrame maskDataFrame;
+  std::string maskCsvPath("masks/"+geometry+".csv");
+  std::ifstream maskFile(maskCsvPath);
+  if (maskFile.good()) {
+        std::cout << "Using masking file " << maskCsvPath << std::endl;
+        maskDataFrame = DataFrame::fromCsv(maskCsvPath, ";");
+        maskDataFrame.print();
+   }
+
+
   if (verbose) {
       //chamberMapping.print();
       /*for (auto stripMapping:stripMappings) {
@@ -436,7 +451,7 @@ int main (int argc, char** argv) {
       }*/
   }
 
-  GEMUnpacker * m_unpacker = new GEMUnpacker(ifiles, isFedKit, ofile, every);
+  GEMUnpacker * m_unpacker = new GEMUnpacker(ifiles, isFedKit, ofile, every, maskDataFrame);
   m_unpacker->setParameters(verbose, checkSyncronization);
   int unpackerStatus = m_unpacker->unpack(max_events, stripMappings, &chamberMapping);
   delete m_unpacker;
