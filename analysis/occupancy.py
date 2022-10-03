@@ -135,7 +135,8 @@ def main():
                         
                         if args.find_noisy:
                             channels = (0.5*(channel_bins[1:]+channel_bins[:-1])).astype(int)
-                            noisy_channels_vfat = channels[channel_hist>4500]
+                            noisy_channels_vfat = channels[channel_hist>50000]
+                            if args.verbose: print("Noisy channels vfat", vfat, ":", noisy_channels_vfat)
                             for channel in noisy_channels_vfat:
                                 noisy_channels.append( (slot, oh, vfat, channel) )
                    
