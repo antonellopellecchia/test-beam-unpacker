@@ -17,6 +17,7 @@ def main():
     parser.add_argument("ifile", type=pathlib.Path)
     parser.add_argument("ofile", type=pathlib.Path)
     parser.add_argument("method", type=str)
+    parser.add_argument("--vfat-file", type=pathlib.Path)
     parser.add_argument("--start", type=int, default=0)
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument("--pulse-stretch", type=int, default=7) 
@@ -43,7 +44,8 @@ def main():
             list_vfat = np.unique(ak.flatten(vfats, axis=None))
             list_channels = np.unique(ak.flatten(channels, axis=None))
 
-            rate_tuples = list()
+            strip_rate_tuples = list()
+            vfat_rate_tuples = list()
 
             total_triggers = ak.num(slots, axis=0)
             if args.verbose: print(f"Taken {total_triggers} triggers ")
@@ -68,16 +70,22 @@ def main():
                         event_rate = event_count / (total_triggers * (args.pulse_stretch+1) * 25e-9)
                         event_rate_error = np.sqrt(event_count) / (total_triggers * (args.pulse_stretch+1) * 25e-9)
                         if args.verbose: print("slot {}, oh {}, vfat {}, count {}; rate {}".format(slot, oh, vfat, event_count, event_rate))
+                        vfat_rate_tuples.append((slot, oh, vfat, event_count, event_rate, event_rate_error, total_triggers))
 
                         for channel in list_channels:
                             event_count = ak.count_nonzero(channels_vfat==channel)
                             event_rate = event_count / (total_triggers * (args.pulse_stretch+1) * 25e-9)
                             event_rate_error = np.sqrt(event_count) / (total_triggers * (args.pulse_stretch+1) * 25e-9)
-                            if args.verbose: print("slot {}, oh {}, vfat {}, channel {}, count {}; rate {}".format(slot, oh, vfat, channel, event_count, event_rate))
-                            rate_tuples.append((slot, oh, vfat, channel, event_count, event_rate, event_rate_error, total_triggers))
+                            #if args.verbose: print("slot {}, oh {}, vfat {}, channel {}, count {}; rate {}".format(slot, oh, vfat, channel, event_count, event_rate))
+                            strip_rate_tuples.append((slot, oh, vfat, channel, event_count, event_rate, event_rate_error, total_triggers))
 
-            rate_df = pd.DataFrame(rate_tuples, columns=["slot", "oh", "vfat", "channel", "counts", "rate", "rate_error", "triggers"])
-            rate_df.to_csv(args.ofile, sep=";")
+            strip_rate_df = pd.DataFrame(strip_rate_tuples, columns=["slot", "oh", "vfat", "channel", "counts", "rate", "rate_error", "triggers"])
+            strip_rate_df.to_csv(args.ofile, sep=";")
+
+            if args.vfat_file:
+                vfat_rate_df = pd.DataFrame(vfat_rate_tuples, columns=["slot", "oh", "vfat", "counts", "rate", "rate_error", "triggers"])
+                vfat_rate_df.to_csv(args.vfat_file, sep=";")
+
             return
 
     elif args.method == "sbit":
