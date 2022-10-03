@@ -16,7 +16,7 @@ DataFrame::DataFrame(std::vector<std::string> colNames, std::map<std::string, st
 	fElements = elements;
 }
 
-DataFrame DataFrame::fromCsv(std::string path) {
+DataFrame DataFrame::fromCsv(std::string path, std::string delimiter) {
 	// parse csv mapping file
 	std::string csvLine, token;
 	std::ifstream csvFile(path);
@@ -34,7 +34,6 @@ DataFrame DataFrame::fromCsv(std::string path) {
 
 		// split line by separator
         size_t pos = 0;
-        std::string delimiter = ",";
         while ((pos = csvLine.find(delimiter)) != std::string::npos) {
             token = csvLine.substr(0, pos);
             csvLine.erase(0, pos + delimiter.length());

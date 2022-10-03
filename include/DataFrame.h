@@ -23,7 +23,7 @@ class DataFrame {
 	    std::vector<std::string> fColumnNames;
 	    std::map<std::string, std::vector<std::string>> fElements;
 	    
-		static DataFrame fromCsv(std::string path);
+		static DataFrame fromCsv(std::string path, std::string delimiter=",");
 };
 
 #endif
