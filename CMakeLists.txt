@@ -105,6 +105,8 @@ configure_file(scripts/alignment/angles.sh scripts/alignment/angles.sh COPYONLY)
 configure_file(scripts/alignment/translation.sh scripts/alignment/translation.sh COPYONLY)
 configure_file(scripts/scan.sh scripts/scan.sh COPYONLY)
 
+configure_file(masks/may2022.csv masks/may2022.csv COPYONLY)
+
 configure_file(analysis/utils/get_corrections.py analysis/utils/get_corrections.py COPYONLY)
 configure_file(analysis/utils/plot_alignment.py analysis/utils/plot_alignment.py COPYONLY)
 
