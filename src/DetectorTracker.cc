@@ -30,11 +30,11 @@ Rechit2D DetectorTracker::createRechit2D(Cluster cluster1, Cluster cluster2) {
 
 void DetectorTracker::mapRechit2D(Rechit2D *rechit) {
     // map already existing rechit to global detector geometry
-    double globalX = rechit->getLocalX() - fPosition[0];
-    double globalY = rechit->getLocalY() - fPosition[1];
+    double localX = rechit->getLocalX();
+    double localY = rechit->getLocalY();
     rechit->setGlobalPosition(
-        globalX*cos(fTheta) - globalY*sin(fTheta),
-        globalX*sin(fTheta) + globalY*cos(fTheta),
+        fPosition[0] + localX*cos(fTheta) - localY*sin(fTheta),
+        fPosition[1] + localX*sin(fTheta) + localY*cos(fTheta),
         fPosition[2]
     );
 }
