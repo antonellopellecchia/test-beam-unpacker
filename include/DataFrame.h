@@ -19,13 +19,14 @@ class DataFrame {
 	    void print();
 
 		int getNRows() { return fElements[fColumnNames[0]].size(); }
+        bool contains(std::vector<std::string> keys);
 		std::string getElement(std::string column, int row);
+
+        bool isEmpty = false;
 	    std::vector<std::string> fColumnNames;
 	    std::map<std::string, std::vector<std::string>> fElements;
 	    
 		static DataFrame fromCsv(std::string path, std::string delimiter=",");
-
-        bool isEmpty = false;
 };
 
 #endif

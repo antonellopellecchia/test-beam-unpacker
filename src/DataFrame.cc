@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <stdexcept>
 #include <iomanip>
+#include <tuple>
 
 #include "DataFrame.h"
 
@@ -80,4 +81,29 @@ void DataFrame::print() {
 		for (auto colName:fColumnNames) std::cout << std::setw(10) << fElements[colName][irow] << "\t";
 		std::cout << std::endl;
 	}
+}
+
+bool DataFrame::contains(std::vector<std::string> values) {
+    bool doesContain = true;
+    for (int irow=0; irow<getNRows(); irow++) {
+
+        /*std::cout << "Comparing ";
+        for (std::string val:values) std::cout << val << " ";
+        std::cout << " with ";
+        for (std::string colname : fColumnNames) std::cout << getElement(colname, irow) << " ";
+        std::cout << "...";*/
+
+        doesContain = true;
+        for (int icol=0; icol<fColumnNames.size(); icol++) {
+            std::string colName = fColumnNames.at(icol);
+            if (getElement(colName, irow) != values.at(icol)) {
+                doesContain = false; // at least one key is different
+                break; // don't scan the other columns for this row
+            }
+        }
+        //std::cout << " contains: " << doesContain << std::endl;
+        // if one row matches, don't scan the other rows and return true:
+        if (doesContain) return doesContain;
+    }
+    return doesContain;
 }
