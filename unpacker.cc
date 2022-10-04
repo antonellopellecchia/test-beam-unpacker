@@ -195,27 +195,39 @@ class GEMUnpacker {
             direction = eta%2;
             for (int i=0;i<64;i++) {
               if (m_vfatdata->lsData() & (1LL << i)) {
-                vecCh.push_back(i);
-                vecVfat.push_back(vfatId);
-                vecOh.push_back(oh);
-                vecSlot.push_back(slot);
-                vecDigiEta.push_back(eta);
-                vecDigiChamber.push_back(chamber);
-                vecDigiDirection.push_back(direction);
-                vecDigiStrip.push_back(stripMapping->to_strip[vfatId][i]);
-                nhits++;
+                  if (!maskDataFrame.isEmpty && !maskDataFrame.contains(std::vector<std::string>{
+                      std::to_string(slot), std::to_string(oh), std::to_string(vfatId), std::to_string(i)
+                  })) {
+                    vecCh.push_back(i);
+                    vecVfat.push_back(vfatId);
+                    vecOh.push_back(oh);
+                    vecSlot.push_back(slot);
+                    vecDigiEta.push_back(eta);
+                    vecDigiChamber.push_back(chamber);
+                    vecDigiDirection.push_back(direction);
+                    vecDigiStrip.push_back(stripMapping->to_strip[vfatId][i]);
+                    nhits++;
+                  } else {
+                      if (verbose) std::cout << "Skipping masked channel " << i << " in VFAT " << vfatId << std::endl;
+                  }
               }
               if (m_vfatdata->msData() & (1LL << i)) {
-                vecCh.push_back(i+64);
-                vecVfat.push_back(vfatId);
-                vecOh.push_back(oh);
-                vecSlot.push_back(slot);
-                vecDigiEta.push_back(eta);
-                vecDigiChamber.push_back(chamber);
-                vecDigiDirection.push_back(direction);
-                vecDigiStrip.push_back(stripMapping->to_strip[vfatId][i+64]);
-                nhits++;
-              }
+               if (!maskDataFrame.isEmpty && !maskDataFrame.contains(std::vector<std::string>{
+                          std::to_string(slot), std::to_string(oh), std::to_string(vfatId), std::to_string(i+64)
+                  })) {
+                    vecCh.push_back(i+64);
+                    vecVfat.push_back(vfatId);
+                    vecOh.push_back(oh);
+                    vecSlot.push_back(slot);
+                    vecDigiEta.push_back(eta);
+                    vecDigiChamber.push_back(chamber);
+                    vecDigiDirection.push_back(direction);
+                    vecDigiStrip.push_back(stripMapping->to_strip[vfatId][i+64]);
+                    nhits++;
+                  } else {
+                      if (verbose) std::cout << "Skipping masked channel " << i+64 << " in VFAT " << vfatId << std::endl;
+                  }
+                }
             }
             delete m_vfatdata;
           }
@@ -338,6 +350,7 @@ private:
     int strip = 0;
     int chamber = 0;
     int direction = 0;
+    int channel = 0;
     int crc = 0;
 
     /* raw data variables: */
@@ -385,7 +398,7 @@ int main (int argc, char** argv) {
       else if (arg=="--events") max_events = atoi(argv[iarg+1]);
       else if (arg=="--geometry") geometry = argv[iarg+1];
       else if (arg=="--every") every = atoi(argv[iarg+1]);
-      std::cout << "every " << every << std::endl;
+      std::cout << "Unpacking every " << every << " element..." << std::endl;
     } else if (isUnnamed) { // unnamed parameters
       if (iarg+1==argc || argv[iarg+1][0]=='-') ofile = arg;
       else ifiles.push_back(arg);
