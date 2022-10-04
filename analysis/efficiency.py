@@ -54,6 +54,7 @@ def main():
     parser.add_argument("bins", type=int, help="Number of bins")
     parser.add_argument("-n", "--events", type=int, default=-1, help="Number of events to analyse")
     parser.add_argument("--start", type=int, default=0, help="First event to analyse")
+    parser.add_argument("--slices", action="store_true", help="Plot 1D efficiency vs x or y coordinate")
     parser.add_argument("-v", "--verbose", action="store_true", help="Activate logging")
     args = parser.parse_args()
     
@@ -66,6 +67,8 @@ def main():
         print("Reading tree...")
         track_x_chi2 = track_tree["trackChi2X"].array(entry_start=args.start,entry_stop=args.start+args.events)
         track_y_chi2 = track_tree["trackChi2Y"].array(entry_start=args.start,entry_stop=args.start+args.events)
+
+        """
         chi2_fig, chi2_axs = plt.subplots(nrows=2, ncols=1, figsize=(10,9*2))
         chi2_axs[0].hist(track_x_chi2, range=(0.00001,30), bins=500, alpha=0.4)
         chi2_axs[0].hist(track_x_chi2[track_x_chi2<2], range=(0.00001,30), bins=500, alpha=0.4)
@@ -76,6 +79,7 @@ def main():
         chi2_axs[1].set_yscale("log")
         chi2_axs[1].set_xlabel("χ$^2_y$")
         chi2_fig.savefig(args.odir/"chi2.png")
+        """
 
         if args.detector=="ge21":
             rechit_chamber = track_tree["rechitChamber"].array(entry_start=args.start,entry_stop=args.start+args.events)
@@ -119,8 +123,8 @@ def main():
             print("Calculating efficiency map...")
             eff_fig, eff_ax = plt.figure(figsize=(12,9)), plt.axes()
             eff_range = [[min(prophits_x), max(prophits_x)], [min(prophits_y), max(prophits_y)]]
-            matched_histogram, matched_bins_x, matched_bins_y = np.histogram2d(matched_x, matched_y, bins=args.bins, range=eff_range)
-            total_histogram, total_bins_x, total_bins_y = np.histogram2d(prophits_x, prophits_y, bins=args.bins, range=eff_range)
+            matched_histogram, matched_bins_x, matched_bins_y = np.histogram2d(ak.to_numpy(matched_x), ak.to_numpy(matched_y), bins=args.bins, range=eff_range)
+            total_histogram, total_bins_x, total_bins_y = np.histogram2d(ak.to_numpy(prophits_x), ak.to_numpy(prophits_y), bins=args.bins, range=eff_range)
 
             if not (np.array_equal(matched_bins_x,total_bins_x) and np.array_equal(matched_bins_y,total_bins_y)):
                 raise ValueError("Different bins between numerator and denominator")
@@ -300,7 +304,7 @@ def main():
             chi2_position_fig, chi2_position_axs = plt.subplots(nrows=2, ncols=2, figsize=(10*2,9*2))
             for i,(coord_prop,prop) in enumerate(zip(["x","y"], [prophits_x, prophits_y])):
                 for j,(coord_chi2,chi2) in enumerate(zip(["x","y"], [track_x_chi2, track_y_chi2])):
-                    chi2_position_axs[i][j].hist2d(chi2, prop, range=((0.1,20), (-40,40)), bins=100)
+                    chi2_position_axs[i][j].hist2d(ak.to_numpy(chi2), ak.to_numpy(prop), range=((0.1,2), (-40,40)), bins=100)
                     chi2_position_axs[i][j].set_xlabel("χ$^2_" + coord_chi2 + "$")
                     chi2_position_axs[i][j].set_ylabel("propagated " + coord_prop + " (mm)")
             chi2_position_fig.tight_layout()
@@ -316,8 +320,8 @@ def main():
             print("Calculating efficiency map...")
             eff_fig, eff_ax = plt.figure(figsize=(12,9)), plt.axes()
             eff_range = [[min(prophits_x), max(prophits_x)], [min(prophits_y), max(prophits_y)]]
-            matched_histogram, matched_bins_x, matched_bins_y = np.histogram2d(matched_x, matched_y, bins=args.bins, range=eff_range)
-            total_histogram, total_bins_x, total_bins_y = np.histogram2d(prophits_x, prophits_y, bins=args.bins, range=eff_range)
+            matched_histogram, matched_bins_x, matched_bins_y = np.histogram2d(ak.to_numpy(matched_x), ak.to_numpy(matched_y), bins=args.bins, range=eff_range)
+            total_histogram, total_bins_x, total_bins_y = np.histogram2d(ak.to_numpy(prophits_x), ak.to_numpy(prophits_y), bins=args.bins, range=eff_range)
 
             print(matched_histogram)
             print(total_histogram)
@@ -357,102 +361,103 @@ def main():
             eff_fig.savefig(os.path.join(args.odir, "me0.png"))
             eff_fig.savefig(os.path.join(args.odir, "me0.pdf"))
 
-            
-            """ Plot 1D efficiency profile vs y """
-            # choose only points close to 1 sector:
-            centers_x = 0.5*(matched_bins_x[1:]+matched_bins_x[:-1])
-            centers_y = 0.5*(matched_bins_y[1:]+matched_bins_y[:-1])
-            #centers_x, centers_y = centers_x[mask_x], centers_y[mask_y]
-            #efficiency = efficiency[map_mask]
 
-            # choose only points in (-35,35)x(-30,20)
-            mask_x = (centers_x>-35)&(centers_x<28)
-            mask_y = (centers_x>-30)&(centers_x<20)
-            # slice efficiency map along 10 y points:
-            npoints_y = 10
-            step_y = int(np.ceil(centers_y[mask_y].size/npoints_y))
-            slices_y = centers_y[mask_y][::step_y]
-            efficiency_slices = efficiency[mask_y][::step_y]
-            #efficiency_slices = efficiency_slices[mask_x]
+            if args.slices:
+                """ Plot 1D efficiency profile vs y """
+                # choose only points close to 1 sector:
+                centers_x = 0.5*(matched_bins_x[1:]+matched_bins_x[:-1])
+                centers_y = 0.5*(matched_bins_y[1:]+matched_bins_y[:-1])
+                #centers_x, centers_y = centers_x[mask_x], centers_y[mask_y]
+                #efficiency = efficiency[map_mask]
 
-            # plot each slice:
-            #slices_fig, slices_axs = plt.subplots(nrows=npoints_y, ncols=1, figsize=(9, 8*(npoints_y)))
-            for i_slice,(slice_y,eff_slice) in enumerate(zip(slices_y, efficiency_slices)):
-                # plot and fit with ten gaussians:
-                slices_fig, slices_axs = plt.figure(figsize=(12,10)), plt.axes()
-                eff_slice = eff_slice[mask_x]
-                # print(centers_x[mask_x], mask_x, eff_slice)
-                # print(ak.count(centers_x, axis=0), ak.count(mask_x, axis=0), ak.count(eff_slice, axis=0))
-                slices_axs.plot(centers_x[mask_x], eff_slice, ".k")
+                # choose only points in (-35,35)x(-30,20)
+                mask_x = (centers_x>-35)&(centers_x<28)
+                mask_y = (centers_x>-30)&(centers_x<20)
+                # slice efficiency map along 10 y points:
+                npoints_y = 10
+                step_y = int(np.ceil(centers_y[mask_y].size/npoints_y))
+                slices_y = centers_y[mask_y][::step_y]
+                efficiency_slices = efficiency[mask_y][::step_y]
+                #efficiency_slices = efficiency_slices[mask_x]
 
-                print(f"Fitting efficiency for y={slice_y:1.2f} mm")          
-                params = [
-                    -30, -20, -15, -10, 0, 5, 15, 20, # means
-                    0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, # sigma
-                    0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7 # constants 
-                ]
-                fit_function = lambda x, *args: 1 - eight_gauss(x, *args)
-                try:
-                    params, cov = scipy.optimize.curve_fit(
-                        fit_function, centers_x[mask_x], eff_slice, p0=params
-                    )
-                    perr = np.sqrt(np.diag(cov))
+                # plot each slice:
+                #slices_fig, slices_axs = plt.subplots(nrows=npoints_y, ncols=1, figsize=(9, 8*(npoints_y)))
+                for i_slice,(slice_y,eff_slice) in enumerate(zip(slices_y, efficiency_slices)):
+                    # plot and fit with ten gaussians:
+                    slices_fig, slices_axs = plt.figure(figsize=(12,10)), plt.axes()
+                    eff_slice = eff_slice[mask_x]
+                    # print(centers_x[mask_x], mask_x, eff_slice)
+                    # print(ak.count(centers_x, axis=0), ak.count(mask_x, axis=0), ak.count(eff_slice, axis=0))
+                    slices_axs.plot(centers_x[mask_x], eff_slice, ".k")
 
-                except RuntimeError: print("Skipping, fit failed...")
-                x = np.linspace(centers_x[mask_x][0], centers_x[mask_x][-1], 1000000)
-                efficiency_interp = fit_function(x, *params)
-                slices_axs.plot(x, efficiency_interp, color="red")
+                    print(f"Fitting efficiency for y={slice_y:1.2f} mm")          
+                    params = [
+                        -30, -20, -15, -10, 0, 5, 15, 20, # means
+                        0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, # sigma
+                        0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7 # constants 
+                    ]
+                    fit_function = lambda x, *args: 1 - eight_gauss(x, *args)
+                    try:
+                        params, cov = scipy.optimize.curve_fit(
+                            fit_function, centers_x[mask_x], eff_slice, p0=params
+                        )
+                        perr = np.sqrt(np.diag(cov))
 
-                m, s, k = params[0:8], params[8:16], params[16:24]
-                err_m, err_s, err_k = perr[0:8], perr[8:16], perr[16:24]
-                print("means", m, "\nsigma", s, "\nconstant", k)
-                #slices_axs.plot(x, average_efficiency+np.zeros(x.size), ".-", color="blue")
-                slice_sigmas, slice_sigma_errs = list(), list()
-                for i in range(8):
-                    #slices_axs.text(
-                    #    m[i], fit_function(m[i], *params)-0.1,
-                    #    f"$\sigma$ = {s[i]*1e3:1.0f} $\pm$ {err_s[i]*1e3:1.0f} µm", size=14, rotation=30, ha="center"
-                    #)
-                    width_97 = 4*s[i]
-                    #width_97 = 2 * s[i] * np.sqrt( -2 * np.log(0.3 * s[i] * np.sqrt(2*np.pi)/k[i]) )
-                    # slices_axs[i_slice].plot(m[i]-0.5*width_97, fit_function(m[i]-0.5*width_97, *params), "o", markersize=5, color="blue")
-                    # slices_axs[i_slice].plot(m[i]+0.5*width_97, fit_function(m[i]+0.5*width_97, *params), "o", markersize=5, color="blue")
-                    slices_axs.text(
-                        m[i]-1, fit_function(m[i], *params)-0.25,
-                        " ",
-                        #f"{width_97*1e3:1.1f} µm at 97%",
-                        size=14, rotation=60, color="blue"
-                    )
+                    except RuntimeError: print("Skipping, fit failed...")
+                    x = np.linspace(centers_x[mask_x][0], centers_x[mask_x][-1], 1000000)
+                    efficiency_interp = fit_function(x, *params)
+                    slices_axs.plot(x, efficiency_interp, color="red")
 
-                s_mean = sum(s)/len(s)
-                err_s_mean = sum(err_s)/len(err_s)
-                m_mean, k_mean = sum(m)/len(m), sum(k)/len(k)
-                print(f"Mean m {m_mean}, mean k {1-1.2*k_mean}, mean s {s_mean}")
-                slices_axs.text(m_mean, 1-2.7*k_mean, f"average dip $\sigma$ = {s_mean*1e3:1.0f} $\pm$ {err_s_mean*1e3:1.0f} µm", size=32, ha="center")
-                
-                # below_97 = efficiency_interp[efficiency_interp<0.97]
-                # below_97_x = x[efficiency_interp<0.97]
-                # print(below_97)
-                # below_97_index = np.argpartition(below_97, 16)[-16:]
-                # below_97_positions = np.sort(below_97_x[below_95_index])
-                # print(below_97_index)
-                # print("Below 97:", below_97_positions)
-                # print("Efficiency:", fit_function(below_97_positions, *params))
-                # below_97_widths = below_97_positions[1::2]-below_95_positions[::2]
-                # print(below_97_widths)
+                    m, s, k = params[0:8], params[8:16], params[16:24]
+                    err_m, err_s, err_k = perr[0:8], perr[8:16], perr[16:24]
+                    print("means", m, "\nsigma", s, "\nconstant", k)
+                    #slices_axs.plot(x, average_efficiency+np.zeros(x.size), ".-", color="blue")
+                    slice_sigmas, slice_sigma_errs = list(), list()
+                    for i in range(8):
+                        #slices_axs.text(
+                        #    m[i], fit_function(m[i], *params)-0.1,
+                        #    f"$\sigma$ = {s[i]*1e3:1.0f} $\pm$ {err_s[i]*1e3:1.0f} µm", size=14, rotation=30, ha="center"
+                        #)
+                        width_97 = 4*s[i]
+                        #width_97 = 2 * s[i] * np.sqrt( -2 * np.log(0.3 * s[i] * np.sqrt(2*np.pi)/k[i]) )
+                        # slices_axs[i_slice].plot(m[i]-0.5*width_97, fit_function(m[i]-0.5*width_97, *params), "o", markersize=5, color="blue")
+                        # slices_axs[i_slice].plot(m[i]+0.5*width_97, fit_function(m[i]+0.5*width_97, *params), "o", markersize=5, color="blue")
+                        slices_axs.text(
+                            m[i]-1, fit_function(m[i], *params)-0.25,
+                            " ",
+                            #f"{width_97*1e3:1.1f} µm at 97%",
+                            size=14, rotation=60, color="blue"
+                        )
 
-                slices_axs.set_xlim(-40, 30)
-                slices_axs.set_ylim(0.0, 1.1)
-                slices_axs.set_xlabel("Extrapolated x (mm)")
-                slices_axs.set_ylabel("Efficiency")
-                slices_axs.text(1.0, 1.0, "ME0 H4 test beam", transform=slices_axs.transAxes, ha="right", va="bottom", weight="bold")
-                hep.cms.text(text="Preliminary", ax=slices_axs)
-                #slices_axs[i_slice].set_title(f"y = {slice_y:1.2f} mm")
-                slices_fig.savefig(os.path.join(args.odir, f"me0_slices_{i_slice}.png"))
-                slices_fig.savefig(os.path.join(args.odir, f"me0_slices_{i_slice}.pdf"))
-            slices_fig.tight_layout()
-            slices_fig.savefig(os.path.join(args.odir, "me0_slices.png"))
-            slices_fig.savefig(os.path.join(args.odir, "me0_slices.pdf"))
+                    s_mean = sum(s)/len(s)
+                    err_s_mean = sum(err_s)/len(err_s)
+                    m_mean, k_mean = sum(m)/len(m), sum(k)/len(k)
+                    print(f"Mean m {m_mean}, mean k {1-1.2*k_mean}, mean s {s_mean}")
+                    slices_axs.text(m_mean, 1-2.7*k_mean, f"average dip $\sigma$ = {s_mean*1e3:1.0f} $\pm$ {err_s_mean*1e3:1.0f} µm", size=32, ha="center")
+                    
+                    # below_97 = efficiency_interp[efficiency_interp<0.97]
+                    # below_97_x = x[efficiency_interp<0.97]
+                    # print(below_97)
+                    # below_97_index = np.argpartition(below_97, 16)[-16:]
+                    # below_97_positions = np.sort(below_97_x[below_95_index])
+                    # print(below_97_index)
+                    # print("Below 97:", below_97_positions)
+                    # print("Efficiency:", fit_function(below_97_positions, *params))
+                    # below_97_widths = below_97_positions[1::2]-below_95_positions[::2]
+                    # print(below_97_widths)
+
+                    slices_axs.set_xlim(-40, 30)
+                    slices_axs.set_ylim(0.0, 1.1)
+                    slices_axs.set_xlabel("Extrapolated x (mm)")
+                    slices_axs.set_ylabel("Efficiency")
+                    slices_axs.text(1.0, 1.0, "ME0 H4 test beam", transform=slices_axs.transAxes, ha="right", va="bottom", weight="bold")
+                    hep.cms.text(text="Preliminary", ax=slices_axs)
+                    #slices_axs[i_slice].set_title(f"y = {slice_y:1.2f} mm")
+                    slices_fig.savefig(os.path.join(args.odir, f"me0_slices_{i_slice}.png"))
+                    slices_fig.savefig(os.path.join(args.odir, f"me0_slices_{i_slice}.pdf"))
+                slices_fig.tight_layout()
+                slices_fig.savefig(os.path.join(args.odir, "me0_slices.png"))
+                slices_fig.savefig(os.path.join(args.odir, "me0_slices.pdf"))
 
 
         if args.detector=="20x10":
