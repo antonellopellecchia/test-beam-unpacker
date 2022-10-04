@@ -452,7 +452,7 @@ int main (int argc, char** argv) {
   if (maskFile.good()) {
         std::cout << "Using masking file " << maskCsvPath << std::endl;
         maskDataFrame = DataFrame::fromCsv(maskCsvPath, ";");
-        maskDataFrame.print();
+        //maskDataFrame.print();
    }
 
 
