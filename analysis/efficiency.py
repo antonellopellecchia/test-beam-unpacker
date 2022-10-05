@@ -36,6 +36,9 @@ def gauss(x, *args):
 def four_gauss(x, *args):
     return n_gauss(x, 4, *args)
 
+def six_gauss(x, *args):
+    return n_gauss(x, 6, *args)
+
 def ten_gauss(x, *args):
     return n_gauss(x, 10, *args)
 
@@ -283,8 +286,8 @@ def main():
             #prophits_eta = ak.flatten(track_tree["prophitEta"].array(entry_start=args.start,entry_stop=args.start+args.events))
             rechits_x = track_tree["rechitLocalX"].array(entry_start=args.start,entry_stop=args.start+args.events)
             rechits_y = track_tree["rechitLocalY"].array(entry_start=args.start,entry_stop=args.start+args.events)
-            prophits_x = track_tree["prophitLocalX"].array(entry_start=args.start,entry_stop=args.start+args.events)
-            prophits_y = track_tree["prophitLocalY"].array(entry_start=args.start,entry_stop=args.start+args.events)
+            prophits_x = track_tree["prophitGlobalX"].array(entry_start=args.start,entry_stop=args.start+args.events)
+            prophits_y = track_tree["prophitGlobalY"].array(entry_start=args.start,entry_stop=args.start+args.events)
 
             mask_chi2 = (track_x_chi2>0.1)&(track_x_chi2<2)&(track_y_chi2>0.1)&(track_y_chi2<2)
             rechit_chamber = rechit_chamber[mask_chi2]
@@ -320,6 +323,8 @@ def main():
             print("Calculating efficiency map...")
             eff_fig, eff_ax = plt.figure(figsize=(12,9)), plt.axes()
             eff_range = [[min(prophits_x), max(prophits_x)], [min(prophits_y), max(prophits_y)]]
+            #eff_range = [[-40,40],[-40,40]]
+            print("efficiency range:", eff_range)
             matched_histogram, matched_bins_x, matched_bins_y = np.histogram2d(ak.to_numpy(matched_x), ak.to_numpy(matched_y), bins=args.bins, range=eff_range)
             total_histogram, total_bins_x, total_bins_y = np.histogram2d(ak.to_numpy(prophits_x), ak.to_numpy(prophits_y), bins=args.bins, range=eff_range)
 
@@ -354,7 +359,7 @@ def main():
             #     0.02,eff_ax.get_position().height
             # ])
             eff_fig.colorbar(img, ax=eff_ax, label="Efficiency")
-            img.set_clim(.85, 1.)
+            img.set_clim(.5, 1.)
             eff_fig.tight_layout()
             eff_ax.text(1., 1., "ME0 H4 test beam", transform=eff_ax.transAxes, ha="right", va="bottom", weight="bold", size=28)
             print("Saving result...")
@@ -371,8 +376,8 @@ def main():
                 #efficiency = efficiency[map_mask]
 
                 # choose only points in (-35,35)x(-30,20)
-                mask_x = (centers_x>-35)&(centers_x<28)
-                mask_y = (centers_x>-30)&(centers_x<20)
+                mask_x = (centers_x>-40)&(centers_x<40)
+                mask_y = (centers_x>-40)&(centers_x<40)
                 # slice efficiency map along 10 y points:
                 npoints_y = 10
                 step_y = int(np.ceil(centers_y[mask_y].size/npoints_y))
@@ -391,12 +396,12 @@ def main():
                     slices_axs.plot(centers_x[mask_x], eff_slice, ".k")
 
                     print(f"Fitting efficiency for y={slice_y:1.2f} mm")          
-                    params = [
-                        -30, -20, -15, -10, 0, 5, 15, 20, # means
-                        0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, # sigma
-                        0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7 # constants 
+                    params = list(np.linspace(-30, 25, 6)) + [
+                        #-30, -20, -15, -10, 0, 5, # means
+                        0.5, 0.5, 0.5, 0.5, 0.5, 0.5, # sigma
+                        0.7, 0.7, 0.7, 0.7, 0.7, 0.7, # constants 
                     ]
-                    fit_function = lambda x, *args: 1 - eight_gauss(x, *args)
+                    fit_function = lambda x, *args: 1 - six_gauss(x, *args)
                     try:
                         params, cov = scipy.optimize.curve_fit(
                             fit_function, centers_x[mask_x], eff_slice, p0=params
@@ -408,12 +413,12 @@ def main():
                     efficiency_interp = fit_function(x, *params)
                     slices_axs.plot(x, efficiency_interp, color="red")
 
-                    m, s, k = params[0:8], params[8:16], params[16:24]
-                    err_m, err_s, err_k = perr[0:8], perr[8:16], perr[16:24]
+                    m, s, k = params[0:6], params[6:12], params[12:18]
+                    err_m, err_s, err_k = perr[0:6], perr[6:12], perr[12:18]
                     print("means", m, "\nsigma", s, "\nconstant", k)
                     #slices_axs.plot(x, average_efficiency+np.zeros(x.size), ".-", color="blue")
                     slice_sigmas, slice_sigma_errs = list(), list()
-                    for i in range(8):
+                    for i in range(6):
                         #slices_axs.text(
                         #    m[i], fit_function(m[i], *params)-0.1,
                         #    f"$\sigma$ = {s[i]*1e3:1.0f} $\pm$ {err_s[i]*1e3:1.0f} µm", size=14, rotation=30, ha="center"
