@@ -411,6 +411,6 @@ def main():
         }
         corrections_df = pd.DataFrame.from_dict(corrections)
         print("Corrections:\n", corrections_df)
-        pd.DataFrame.from_dict(corrections).to_csv(args.odir / "corrections.txt", sep=";")
+        pd.DataFrame.from_dict(corrections).to_csv(args.odir / "corrections.txt", sep=";", index_label="chamber")
 
 if __name__=='__main__': main()
