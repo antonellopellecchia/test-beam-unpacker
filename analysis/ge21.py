@@ -77,7 +77,14 @@ def analyze_rotation(prophits, rechits, eta, odir):
 
     """ Choose only events with rechits in two eta partitions """
     multiple_rechits_filter = (~ak.is_none(eta))&(ak.std(eta, axis=1)>0)
+    #multiple_rechits_filter = ~ak.is_none(eta) # at least one hit
+    #multiple_rechits_filter = ak.count(eta, axis=1)==2 # only two hits per event
+    #multiple_rechits_filter = multiple_rechits_filter&((ak.count_nonzero(eta==2, axis=1)>0)&(ak.count_nonzero(eta==3, axis=1)>0)) # only eta 2 and 3 must have hits
+    
     eta_multiple = eta[multiple_rechits_filter]
+    print("Eta filter:", multiple_rechits_filter)
+    print("Multiple etas:", eta_multiple)
+    print("Events with multiple etas:", ak.num(eta_multiple, axis=0))
     residuals_x = prophits_x-rechits_x
     good_events_filter = abs(prophits_y)<100
     multiple_rechits_filter = (multiple_rechits_filter)&(good_events_filter)
@@ -88,7 +95,7 @@ def analyze_rotation(prophits, rechits, eta, odir):
     prophits_y_multiple = ak.to_numpy(prophits_y_multiple[~ak.is_none(prophits_y_multiple)])
     
     rotation_bins=(80,80)
-    rotation_range=((-25,25),(-10,10))
+    rotation_range=((-46,46),(-46,46))
 
     """ Plot propagated positions only for multiple eta fired """
     rotation_fig, rotation_axs = plt.subplots(nrows=1, ncols=3, figsize=(39,9)) 
@@ -96,18 +103,17 @@ def analyze_rotation(prophits, rechits, eta, odir):
         prophits_x_multiple, prophits_y_multiple,
         bins=rotation_bins, range=rotation_range # cut away pillar
     )
-
-    rotation_axs[0].set_xlabel("Propagated x (mm)")
-    rotation_axs[0].set_ylabel("Propagated y (mm)")
+    rotation_axs[0].set_xlabel("Propagated local x (mm)")
+    rotation_axs[0].set_ylabel("Propagated local y (mm)")
 
     rotation_axs[2].hist(
         prophits_y_multiple, bins=80,
-        range=(-5,5),
+        range=rotation_range[1],
         histtype="stepfilled", facecolor="none", edgecolor="black", linewidth=2
     )
-    rotation_axs[2].set_xlabel("Propagated y (mm)")
+    rotation_axs[2].set_xlabel("Propagated local y (mm)")
 
-    prophits_mask = (prophits_y_multiple>-4)&(prophits_y_multiple<2)
+    prophits_mask = (prophits_y_multiple>rotation_range[1][0])&(prophits_y_multiple<rotation_range[1][1])
 
     """ Plot with statistics """
     y_means, x_edges, _ = scipy.stats.binned_statistic(prophits_x_multiple[prophits_mask], prophits_y_multiple[prophits_mask], "mean", bins=20, range=rotation_range[0])
@@ -220,6 +226,11 @@ def main():
         raw_channel = raw_channel[rechits_chamber==ge21_chamber]
         rechits_cluster_center = rechits_cluster_center[rechits_chamber==ge21_chamber]
 
+        eta_fig, eta_ax = plt.figure(figsize=(11,9)), plt.axes()
+        eta_ax.hist(ak.flatten(rechits_eta), range=(0.5,10.5), bins=10)
+        eta_ax.set_xlabel("Rechit eta partition")
+        eta_fig.savefig(args.odir / "eta.png")
+
         """ Choose only events within a (-50,50) mm window """
         prophit_window_mask = (abs(prophits_x)<50)&(abs(prophits_y)<50)
         #prophit_window_mask = (abs(prophits_x)<100)&(abs(prophits_y)<100)
@@ -237,9 +248,9 @@ def main():
         raw_channel = raw_channel[prophit_window_mask]
         rechits_cluster_center = rechits_cluster_center[prophit_window_mask]
 
-        residuals_x, residuals_y = prophits_x-rechits_x, prophits_y-rechits_y
+        residuals_global_x, residuals_global_y = prophits_x-rechits_x, prophits_y-rechits_y
+        residuals_x, residuals_y = prophits_local_x-rechits_local_x, prophits_local_y-rechits_local_y
         residuals_r, residuals_phi = prophits_r-rechits_r, prophits_phi-rechits_phi
-        residuals_local_x, residuals_local_y = prophits_local_x-rechits_local_x, prophits_local_y-rechits_local_y
 
         if args.verbose:
             print("track intercept x:", track_intercept_x)
@@ -264,8 +275,8 @@ def main():
 
         if args.rotation:
             analyze_rotation(
-                [prophits_x, prophits_y],
-                [rechits_x, rechits_y],
+                [prophits_local_x, prophits_local_y],
+                [rechits_local_x, rechits_local_y],
                 rechits_eta,
                 args.odir
             )
@@ -339,7 +350,7 @@ def main():
         hits_fig, hits_axs = plt.subplots(nrows=2, ncols=2, figsize=(24,18))
         residual_fig, residual_axs = plt.subplots(nrows=2, ncols=1, figsize=(12,18))
         residual_rechit_fig, residual_rechit_axs = plt.subplots(nrows=2, ncols=2, figsize=(24,18))
-        residual_prophit_fig, residual_prophit_axs = plt.subplots(nrows=2, ncols=6, figsize=(72,18))
+        residual_prophit_fig, residual_prophit_axs = plt.subplots(nrows=2, ncols=2, figsize=(22,18))
         rechit_prophit_fig, rechit_prophit_axs = plt.subplots(nrows=2, ncols=2, figsize=(24,18))
         ranges = [(-5, 5), (-100, 100)]
 
@@ -395,11 +406,10 @@ def main():
         #residual_fig, residual_axs = plt.subplots(ncols=len(etas), nrows=1, figsize=(12*len(etas),9))
         residual_fig, residual_ax = plt.figure(figsize=(12,9)), plt.axes()
 
-        residuals_range, residuals_bins = (-6000, 6000), 100
+        residuals_range, residuals_bins = (-50, 50), 100
         residuals_binning = (residuals_range[1]-residuals_range[0])/residuals_bins
 
         efficiency_tuples = list()
-        #for ieta,eta in enumerate(etas):
         #residuals_eta = residuals_x[rechits_eta==eta]
 
 
@@ -411,15 +421,19 @@ def main():
             print(run_df)
             run_df.to_csv("/home/gempro/testbeam/july2022/runs/runs.csv", index=False, sep=",")"""
 
-        residuals_filter = (residuals_x>residuals_range[0])&(residuals_x<residuals_range[1])#&(rechits_eta==2)
+        #for ieta,eta in enumerate(etas):
+        #print("eta =", eta)
+        #residuals_filter = rechits_eta==eta
+        residuals_filter = (residuals_x>residuals_range[0])&(residuals_x<residuals_range[1])
         residuals_eta = residuals_x[residuals_filter]
+        #print("Residuals eta", eta, residuals_eta)
         rechits_eta = rechits_eta[residuals_filter]
 
         residuals_eta_flat = ak.flatten(residuals_eta)
         #residuals_eta_flat = ak.flatten(residuals_x)
         points, bins, _ = residual_ax.hist(
             residuals_eta_flat,
-            bins=residuals_bins, #range=residuals_range, 
+            bins=residuals_bins, range=residuals_range, 
             histtype="stepfilled", linewidth=2, facecolor="none",
             edgecolor="k"#, label=f"$\eta={eta:0.0f}$"
         )
@@ -553,10 +567,18 @@ def main():
             )
             residual_rechit_axs[idirection][1].set_xlabel(f"Rechit global {direction_other} (mm)")
             residual_rechit_axs[idirection][1].set_ylabel(f"Residuali global {direction} (mm)")
+
+            prophits_other = [np.array(prophits_x),np.array(prophits_y)][idirection_other][single_hit_mask]
             residual_prophit_axs[idirection][1].plot(
-                [np.array(prophits_x),np.array(prophits_y)][idirection_other][single_hit_mask],
-                np.array(residuals), "."#bins=100, range=((-40,40),residuals_range)
+                prophits_other, np.array(residuals), "."#bins=100, range=((-40,40),residuals_range)
             )
+
+            rotation_pars, rotation_errs = curve_fit(linear_function, prophits_other, np.array(residuals))
+            rotation_angle = np.arcsin(rotation_pars[1])
+            print("Rotation parameters:", rotation_pars, ", angle:", rotation_angle, "rad")
+            x_fit = np.linspace(ak.min(prophits), ak.max(prophits), 1000)
+            residual_prophit_axs[idirection][1].plot(x_fit, linear_function(x_fit, *rotation_pars), "-", color="red")
+            
             residual_prophit_axs[idirection][1].set_xlabel(f"Propagated global {direction_other} (mm)")
             residual_prophit_axs[idirection][1].set_ylabel(f"Residual global {direction} (mm)")
 
