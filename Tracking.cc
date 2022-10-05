@@ -53,38 +53,11 @@ int main (int argc, char** argv) {
     int max_events = -1;
     bool verbose = false;
     std::string geometry;
-    double trackerAngles[4] = { .01158492576947, .00388093867016,  -.00190211740939, -.00971001194466 };
-    double trackerCorrectionsX[4] = { -.68888635583799, .01851981215192, -.01738387261102, -.01552764211394 };
-    double trackerCorrectionsY[4] = { -3.51064702409602, -1.08306067022753, .57358265976411, -.10031691598836 };
     for (int iarg=0; iarg<argc; iarg++) {
       std::string arg = argv[iarg];
       if (arg=="--verbose") verbose = true;
       else if (arg=="--events") max_events = atoi(argv[iarg+1]);
       else if (arg=="--geometry") geometry = argv[iarg+1];
-      else if (arg=="--angles") {
-        std::cout << "angles: ";
-        for (int iangle=0; iangle<4; iangle++) {
-          trackerAngles[iangle] = atof(argv[iarg+iangle+1]);
-          std::cout << trackerAngles[iangle] << " ";
-        }
-        std::cout << std::endl;
-      }
-      else if (arg=="--x") {
-        std::cout << "translation x: ";
-        for (int ix=0; ix<4; ix++) {
-          trackerCorrectionsX[ix] = atof(argv[iarg+ix+1]);
-          std::cout << trackerCorrectionsX[ix] << " ";
-        }
-        std::cout << std::endl;
-      }
-      else if (arg=="--y") {
-        std::cout << "translation y: ";
-        for (int iy=0; iy<4; iy++) {
-          trackerCorrectionsY[iy] = atof(argv[iarg+iy+1]);
-          std::cout << trackerCorrectionsY[iy] << " ";
-        }
-        std::cout << std::endl;
-      }
    }
 
     if (max_events > 0) std::cout << "Analyzing " << max_events << " events" << std::endl;
