@@ -17,6 +17,8 @@ from mpl_toolkits.mplot3d import Axes3D
 import mplhep as hep
 plt.style.use(hep.style.ROOT)
 plt.rcParams.update({'font.size': 32})
+mpl.rcParams['pdf.fonttype'] = 42
+mpl.rcParams['ps.fonttype'] = 42
 
 # enable multi-threading:
 from concurrent.futures import ThreadPoolExecutor
@@ -152,7 +154,7 @@ def main():
                 color="black", weight="normal", loc="left", size=28
             )
             eff_fig.colorbar(img, ax=eff_ax, label="Efficiency")
-            img.set_clim(.85, 1.)
+            img.set_clim(.5, 1.)
             eff_fig.tight_layout()
             eff_ax.text(1.0, 1.01, "GE2/1 H4 test beam", transform=eff_ax.transAxes, ha="right", weight="bold", size=28)
             print("Saving result...")
@@ -376,10 +378,10 @@ def main():
                 #efficiency = efficiency[map_mask]
 
                 # choose only points in (-35,35)x(-30,20)
-                mask_x = (centers_x>-40)&(centers_x<40)
-                mask_y = (centers_x>-40)&(centers_x<40)
+                mask_x = (centers_x>-30)&(centers_x<20)
+                mask_y = (centers_x>-30)&(centers_x<20)
                 # slice efficiency map along 10 y points:
-                npoints_y = 10
+                npoints_y = 5
                 step_y = int(np.ceil(centers_y[mask_y].size/npoints_y))
                 slices_y = centers_y[mask_y][::step_y]
                 efficiency_slices = efficiency[mask_y][::step_y]
@@ -395,30 +397,34 @@ def main():
                     # print(ak.count(centers_x, axis=0), ak.count(mask_x, axis=0), ak.count(eff_slice, axis=0))
                     slices_axs.plot(centers_x[mask_x], eff_slice, ".k")
 
-                    print(f"Fitting efficiency for y={slice_y:1.2f} mm")          
-                    params = list(np.linspace(-30, 25, 6)) + [
-                        #-30, -20, -15, -10, 0, 5, # means
-                        0.5, 0.5, 0.5, 0.5, 0.5, 0.5, # sigma
-                        0.7, 0.7, 0.7, 0.7, 0.7, 0.7, # constants 
-                    ]
-                    fit_function = lambda x, *args: 1 - six_gauss(x, *args)
+                    n_dips = 6 # peaks in gaussian comb
+                    print(f"Fitting efficiency for y={slice_y:1.2f} mm")
+                    params = np.concatenate((
+                        np.linspace(-30, 30, n_dips, endpoint=False), # means
+                        0.5*np.ones(n_dips), # sigma
+                        0.7*np.ones(n_dips) # constants
+                    ))
+                    
+                    fit_function = lambda x, *args: 1 - n_gauss(x, n_dips, *args)
                     try:
                         params, cov = scipy.optimize.curve_fit(
                             fit_function, centers_x[mask_x], eff_slice, p0=params
                         )
                         perr = np.sqrt(np.diag(cov))
-
+                        print("Fit parameters:", params)
+                        print("Fit errors:", perr)
                     except RuntimeError: print("Skipping, fit failed...")
+
                     x = np.linspace(centers_x[mask_x][0], centers_x[mask_x][-1], 1000000)
                     efficiency_interp = fit_function(x, *params)
                     slices_axs.plot(x, efficiency_interp, color="red")
 
-                    m, s, k = params[0:6], params[6:12], params[12:18]
-                    err_m, err_s, err_k = perr[0:6], perr[6:12], perr[12:18]
+                    m, s, k = np.split(params, 3)
+                    err_m, err_s, err_k = np.split(perr, 3)
                     print("means", m, "\nsigma", s, "\nconstant", k)
                     #slices_axs.plot(x, average_efficiency+np.zeros(x.size), ".-", color="blue")
                     slice_sigmas, slice_sigma_errs = list(), list()
-                    for i in range(6):
+                    for i in range(n_dips):
                         #slices_axs.text(
                         #    m[i], fit_function(m[i], *params)-0.1,
                         #    f"$\sigma$ = {s[i]*1e3:1.0f} $\pm$ {err_s[i]*1e3:1.0f} µm", size=14, rotation=30, ha="center"
@@ -434,9 +440,9 @@ def main():
                             size=14, rotation=60, color="blue"
                         )
 
-                    s_mean = sum(s)/len(s)
-                    err_s_mean = sum(err_s)/len(err_s)
-                    m_mean, k_mean = sum(m)/len(m), sum(k)/len(k)
+                    s_mean = s[1:-1].mean()
+                    err_s_mean = s[1:-1].std()#err_s.mean()
+                    m_mean, k_mean = m.mean(), k.mean()
                     print(f"Mean m {m_mean}, mean k {1-1.2*k_mean}, mean s {s_mean}")
                     slices_axs.text(m_mean, 1-2.7*k_mean, f"average dip $\sigma$ = {s_mean*1e3:1.0f} $\pm$ {err_s_mean*1e3:1.0f} µm", size=32, ha="center")
                     
@@ -451,19 +457,14 @@ def main():
                     # below_97_widths = below_97_positions[1::2]-below_95_positions[::2]
                     # print(below_97_widths)
 
-                    slices_axs.set_xlim(-40, 30)
+                    #slices_axs.set_xlim(-40, 30)
                     slices_axs.set_ylim(0.0, 1.1)
-                    slices_axs.set_xlabel("Extrapolated x (mm)")
+                    slices_axs.set_xlabel("Propagated track x (mm)")
                     slices_axs.set_ylabel("Efficiency")
                     slices_axs.text(1.0, 1.0, "ME0 H4 test beam", transform=slices_axs.transAxes, ha="right", va="bottom", weight="bold")
                     hep.cms.text(text="Preliminary", ax=slices_axs)
                     #slices_axs[i_slice].set_title(f"y = {slice_y:1.2f} mm")
                     slices_fig.savefig(os.path.join(args.odir, f"me0_slices_{i_slice}.png"))
-                    slices_fig.savefig(os.path.join(args.odir, f"me0_slices_{i_slice}.pdf"))
-                slices_fig.tight_layout()
-                slices_fig.savefig(os.path.join(args.odir, "me0_slices.png"))
-                slices_fig.savefig(os.path.join(args.odir, "me0_slices.pdf"))
-
 
         if args.detector=="20x10":
             rechit_chamber = track_tree["rechitChamber"].array(entry_start=args.start,entry_stop=args.start+args.events)
