@@ -26,10 +26,8 @@ Hit Hit::fromLocal(DetectorGeometry *detector, double localX, double localY, dou
     // std::cout << "              ######### END DEBUGGING #########" << std::endl;
     
     // calculate global coordinates:
-    double x = localX + detector->getPositionX();
-    double y = localY + detector->getPositionY();
-    double globalX = x*cos(detector->getTheta()) - y*sin(detector->getTheta());
-    double globalY = x*sin(detector->getTheta()) + y*cos(detector->getTheta());
+    double globalX = detector->getPositionX() + localX*cos(detector->getTheta()) - localY*sin(detector->getTheta());
+    double globalY = detector->getPositionY() + localX*sin(detector->getTheta()) + localY*cos(detector->getTheta());
 
     return Hit(
         detector,
