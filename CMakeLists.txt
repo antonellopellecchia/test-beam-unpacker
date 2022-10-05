@@ -109,6 +109,7 @@ configure_file(masks/may2022.csv masks/may2022.csv COPYONLY)
 
 configure_file(analysis/utils/get_corrections.py analysis/utils/get_corrections.py COPYONLY)
 configure_file(analysis/utils/plot_alignment.py analysis/utils/plot_alignment.py COPYONLY)
+configure_file(analysis/utils/correct_geometry.py analysis/utils/correct_geometry.py COPYONLY)
 
 #----------------------------------------------------------------------------
 # Install the executable to 'bin' directory under CMAKE_INSTALL_PREFIX
