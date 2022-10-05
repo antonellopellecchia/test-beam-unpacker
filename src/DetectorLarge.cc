@@ -1,3 +1,5 @@
+#include <math.h>
+
 #include "Cluster.h"
 #include "Rechit.h"
 #include "DetectorLarge.h"
@@ -67,4 +69,13 @@ Rechit DetectorLarge::createRechit(Cluster cluster) {
     );
     rechit.setY(getY(cluster.getEta()));
     return rechit;
+}
+
+void DetectorLarge::mapRechit(Rechit *rechit) {
+    // map already existing rechit to global detector geometry
+    double localX = rechit->getCenter();
+    rechit->setGlobalPosition(
+        fPosition[0] + localX*cos(fTheta),// - localY*sin(fTheta),
+        fPosition[2]
+    );
 }

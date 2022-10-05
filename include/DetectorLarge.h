@@ -25,6 +25,7 @@ class DetectorLarge : public DetectorGeometry {
         double getNStrips() { return fNumberStrips; }
 
         Rechit createRechit(Cluster cluster);
+        void mapRechit(Rechit *rechit);
     
     private:
 
