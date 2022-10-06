@@ -18,7 +18,7 @@ def main():
     elif args.value=="angle": corrections = corrections_df["angle"]
     else: return -1
 
-    corrections *= -1
+    #if args.value=="angle": corrections *= -1
     print(" ".join(corrections.astype(str)))
     return 0
 
