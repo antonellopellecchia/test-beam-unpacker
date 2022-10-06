@@ -42,11 +42,13 @@ def main():
         if args.verbose: print("Reading iteration {}, chamber {}...".format(iteration, chamber))
         correction_step_df = pd.read_csv(os.path.join(idir, "corrections.txt"), sep=";", index_col=0)
         correction_step_df["chamber"] = correction_step_df.index
+        correction_step_df.reset_index(level=0, inplace=True, drop=True)
         correction_step_df["iteration"] = iteration
         correction_step = correction_step_df[correction_step_df["chamber"]==chamber]
         corrections.append(correction_step)
 
     corrections_df = pd.concat(corrections)
+    corrections_df.reset_index()
     print("Correction dataframe:")
     print(corrections_df)
 
