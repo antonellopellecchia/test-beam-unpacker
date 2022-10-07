@@ -37,6 +37,8 @@ DetectorLarge::DetectorLarge(int oh, int chamber, double baseNarrow, double base
         std::cout << ", expected resolution " << fPartitionStripPitchesSqrt12[eta] << std::endl;
     }
     fOriginY = baseWide*height/(baseWide-baseNarrow);
+    fArea = 0.5*(baseWide+baseNarrow)*height;
+    fAperture = 2*atan(0.5*baseWide/fOriginY);
     std::cout << std::endl;
 }
 

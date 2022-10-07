@@ -21,7 +21,9 @@ class DetectorGeometry {
         double getPositionY() { return fPosition[1]; }
         double getPositionZ() { return fPosition[2]; }
         double getTheta() { return fTheta; }
+        double getArea() { return fArea; }
         double getOriginY() { return fOriginY; }
+        double getAperture() { return fAperture; }
 
         double getNEta() { return fNumberPartitions; }
         double getEtaHeight() { return fEtaHeight; }
@@ -30,7 +32,7 @@ class DetectorGeometry {
 
         double fPosition[3];
         double fTheta;
-        double fOriginY;
+        double fArea, fOriginY, fAperture;
 
         int fNumberPartitions;
         double fEtaHeight;
