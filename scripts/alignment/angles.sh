@@ -16,7 +16,7 @@ angles=(0. 0. 0. 0.)
 iteration=1
 while [ "$iteration" -le "$N_STEPS" ]; do
     echo "############################################################"
-    iter_track_dir=$TRACK_DIR/$RUN_NUMBER/iteration_$iteration
+    iter_track_dir=$TRACK_DIR/$RUN_NUMBER/angles/iteration_$iteration
     mkdir -p $iter_track_dir
 
     for jchamber in {0..3}; do
