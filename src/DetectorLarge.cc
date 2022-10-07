@@ -36,9 +36,17 @@ DetectorLarge::DetectorLarge(int oh, int chamber, double baseNarrow, double base
         std::cout << ", strip pitch " << fPartitionStripPitches[eta];
         std::cout << ", expected resolution " << fPartitionStripPitchesSqrt12[eta] << std::endl;
     }
+
+    // calculate and print detector geometric parameters:
     fOriginY = baseWide*height/(baseWide-baseNarrow);
     fArea = 0.5*(baseWide+baseNarrow)*height;
     fAperture = 2*atan(0.5*baseWide/fOriginY);
+    std::cout << "Radius " << fOriginY;
+    std::cout << ", area " << fArea;
+    std::cout << ", aperture " << fAperture;
+    std::cout << ", pitch " << fAperture/fNumberStrips;
+    std::cout << ", expected resolution " << fAperture/fNumberStrips/pow(12, 0.5) << std::endl;
+
     std::cout << std::endl;
 }
 
