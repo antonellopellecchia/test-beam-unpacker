@@ -36,7 +36,7 @@ DetectorLarge::DetectorLarge(int oh, int chamber, double baseNarrow, double base
         std::cout << ", strip pitch " << fPartitionStripPitches[eta];
         std::cout << ", expected resolution " << fPartitionStripPitchesSqrt12[eta] << std::endl;
     }
-    fOriginY = baseNarrow*height/(baseWide-baseNarrow);
+    fOriginY = baseWide*height/(baseWide-baseNarrow);
     std::cout << std::endl;
 }
 
