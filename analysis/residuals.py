@@ -137,7 +137,7 @@ def main():
         residual_fig, residual_axs = plt.subplots(nrows=2, ncols=n_chambers, figsize=(12*n_chambers,20))
         residual_cls_fig, residual_cls_axs = plt.subplots(nrows=2, ncols=n_chambers, figsize=(12*n_chambers,18))
         spres_fig, spres_axs = plt.subplots(nrows=1, ncols=n_chambers, figsize=(12*n_chambers,10))
-        rotation_fig, rotation_axs = plt.subplots(nrows=2, ncols=n_chambers, figsize=(12*n_chambers,18))
+        rotation_fig, rotation_axs = plt.subplots(nrows=2, ncols=n_chambers, figsize=(11*n_chambers,18))
         properr_fig, properr_axs = plt.subplots(nrows=1, ncols=n_chambers, figsize=(12*n_chambers,7))
         prophits_fig, prophits_axs = plt.subplots(nrows=2, ncols=n_chambers, figsize=(12*n_chambers,18))
         profile_fig, profile_axs = plt.subplots(nrows=2, ncols=n_chambers, figsize=(12*n_chambers,18)) 
@@ -235,35 +235,14 @@ def main():
                     space_resolutions[direction].append(res)
                     err_space_resolutions[direction].append(err_res)
 
-                    # residual_cls_axs[idirection][tested_chamber].text(
-                    #     2, (1-0.1*parity)*1e6,
-                    #     f"Space resolution {space_resolution:1.0f} µm",
-                    #     horizontalalignment="right",
-                    #     fontsize=20
-                    # )
-                
-                # plot residuals vs propagated position:
-                prophit_bins = np.linspace(-30, 30, 15)
-                prophit_means, residual_means = list(), list()
-                prophit_errors, residual_errors = list(), list()
-                for i,b in enumerate(prophit_bins[:-1]):
-                    b_min, b_max = b, prophit_bins[i+1]
-                    selection = (prophits[idirection]>b_min) & (prophits[idirection]<b_max)
-                    prophit_means.append(ak.mean(prophits[idirection][selection]))
-                    residual_means.append(ak.mean(residuals[idirection-1][selection]))
-                    prophit_errors.append(ak.std(prophits[idirection][selection]))
-                    residual_errors.append(ak.std(residuals[idirection-1][selection])/np.sqrt(ak.num(residuals[idirection][selection], axis=0)))
-                   
+                rotation_mask = (abs(prophits[idirection])<45)&(abs(residuals[idirection-1])<5)
+                p, r = prophits[idirection][rotation_mask], residuals[idirection-1][rotation_mask]
+
                 """ determine rotation corrections: """
-                rotation_axs[idirection][tested_chamber].errorbar(
-                    prophit_means, residual_means, xerr=prophit_errors, yerr=residual_errors, fmt="o"
-                )
+                rotation_axs[idirection][tested_chamber].plot(p, r, ".")
                 # fit with line and plot result:
-                coeff = [
-                    0.5*(residual_means[0]+residual_means[-1]),
-                    (residual_means[-1]+residual_means[0])/(prophit_means[-1]+prophit_means[0])
-                ]
-                coeff, var_matrix = curve_fit(linear_function, prophit_means, residual_means, p0=coeff, method="lm")
+                coeff = [0, 0]
+                coeff, var_matrix = curve_fit(linear_function, p, r, p0=coeff, method="lm")
                 q, m = coeff
                 err_q, err_m = np.sqrt(np.diag(var_matrix))
 
@@ -273,22 +252,21 @@ def main():
                 angles[idirection][tested_chamber] = (-1)**idirection*theta
                 err_angles[idirection][tested_chamber] = err_theta
 
-                x_fit = np.linspace(-30, 30, 20)
+                x_fit = np.linspace(-45, 45, 5)
                 rotation_axs[idirection][tested_chamber].plot(x_fit, linear_function(x_fit, *coeff), color="red")
                 rotation_axs[idirection][tested_chamber].text(
-                    0.7, 0.8,
-                    f"m = {m:1.1e} $\pm$ {err_m:1.1f}\n"+
+                    0.95, 0.93,
+                    #f"m = {m:1.1e} $\pm$ {err_m:1.1f}\n"+
                     f"q = {q*1e3:1.2f} $\pm$ {err_q*1e3:1.1f} µm\n"+
                     f"ϑ = {theta*1e3:1.1f} $\pm$ {err_theta*1e3:1.1f} mrad",
                     transform=rotation_axs[idirection][tested_chamber].transAxes,
-                    bbox=dict(boxstyle="square, pad=0.5", ec="black", fc="none")
+                    ha="right", va="top", fontsize=28, linespacing=1.5,
+                    bbox=dict(boxstyle="square, pad=0.5", alpha=1, ec="white", fc="white")
                 )
 
-                #rotation_axs[idirection][tested_chamber].set_xlim(-30, 30)
-                #rotation_axs[idirection][tested_chamber].set_ylim(-0.06, 0.06)
-                rotation_axs[idirection][tested_chamber].set_xlabel(f"Propagated hit {direction} (mm)")
+                rotation_axs[idirection][tested_chamber].set_xlabel(f"Propagated {direction} (mm)")
                 rotation_axs[idirection][tested_chamber].set_ylabel(f"Residual {directions[idirection-1]} (mm)")
-                rotation_axs[idirection][tested_chamber].set_title(f"BARI-0{tested_chamber+1}")
+                rotation_axs[idirection][tested_chamber].set_title(f"Tracker {tested_chamber+1}")
 
                 # plot 2D distribution of residuals vs propagated position:
                 residuals2d_xy_axs[idirection][tested_chamber].hist2d(prophits[idirection], residuals[idirection-1], bins=100, range=[[-40, 40],[-0.6, 0.6]])
