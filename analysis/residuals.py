@@ -274,9 +274,11 @@ def main():
                     0.5*(residual_means[0]+residual_means[-1]),
                     (residual_means[-1]+residual_means[0])/(prophit_means[-1]+prophit_means[0])
                 ]
-                coeff, var_matrix = curve_fit(linear_function, prophit_means, residual_means, p0=coeff, method="lm")
-                q, m = coeff
-                err_q, err_m = np.sqrt(np.diag(var_matrix))
+                try:
+                    coeff, var_matrix = curve_fit(linear_function, prophit_means, residual_means, p0=coeff, method="lm")
+                    q, m = coeff
+                    err_q, err_m = np.sqrt(np.diag(var_matrix))
+                except Exception as e: print("Skipping rotation fit:", e)
 
                 # calculate angles:
                 theta = np.arcsin(m)
