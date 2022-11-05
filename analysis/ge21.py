@@ -149,6 +149,7 @@ def main():
     parser.add_argument("--chamber", type=int, default=4, help="Tested chamber (default 4, i.e. GE2/1)")
     parser.add_argument("--rotation", action="store_true", help="Determine rotation corrections")
     parser.add_argument("--alignment", type=float, nargs="+", default=[0, 0, 0], help="x, y, angle")
+    parser.add_argument("--scan", type=pathlib.Path, help="Output scan file")
     args = parser.parse_args()
     
     os.makedirs(args.odir, exist_ok=True)
@@ -205,6 +206,7 @@ def main():
         track_x_chi2, track_y_chi2 = track_x_chi2[mask_chi2], track_y_chi2[mask_chi2]
         rechits_r, prophits_r = rechits_r[mask_chi2], prophits_r[mask_chi2]
         rechits_phi, prophits_phi = rechits_phi[mask_chi2], prophits_phi[mask_chi2]
+
 
         ge21_chamber = args.chamber
         prophits_x, prophits_y = ak.flatten(prophits_x[prophits_chamber==ge21_chamber]), ak.flatten(prophits_y[prophits_chamber==ge21_chamber])
@@ -337,6 +339,7 @@ def main():
 
         hits_fig, hits_axs = plt.subplots(nrows=2, ncols=2, figsize=(24,18))
         residual_fig, residual_axs = plt.subplots(nrows=2, ncols=1, figsize=(12,18))
+        cluster_size_fig, cluster_size_axs = plt.figure(figsize=(12,9)), plt.axes()
         residual_rechit_fig, residual_rechit_axs = plt.subplots(nrows=2, ncols=2, figsize=(24,18))
         residual_prophit_fig, residual_prophit_axs = plt.subplots(nrows=2, ncols=6, figsize=(72,18))
         rechit_prophit_fig, rechit_prophit_axs = plt.subplots(nrows=2, ncols=2, figsize=(24,18))
@@ -394,7 +397,7 @@ def main():
         #residual_fig, residual_axs = plt.subplots(ncols=len(etas), nrows=1, figsize=(12*len(etas),9))
         residual_fig, residual_ax = plt.figure(figsize=(12,9)), plt.axes()
 
-        residuals_range, residuals_bins = (-60, 60), 100
+        residuals_range, residuals_bins = (-25, 25), 100
         residuals_binning = (residuals_range[1]-residuals_range[0])/residuals_bins
 
         efficiency_tuples = list()
@@ -411,6 +414,7 @@ def main():
             run_df.to_csv("/home/gempro/testbeam/july2022/runs/runs.csv", index=False, sep=",")"""
 
         residuals_filter = (residuals_x>residuals_range[0])&(residuals_x<residuals_range[1])#&(rechits_eta==2)
+        print("Residual filter:", residuals_filter)
         residuals_eta = residuals_x[residuals_filter]
         rechits_eta = rechits_eta[residuals_filter]
 
@@ -418,7 +422,7 @@ def main():
         #residuals_eta_flat = ak.flatten(residuals_x)
         points, bins, _ = residual_ax.hist(
             residuals_eta_flat,
-            bins=residuals_bins, #range=residuals_range, 
+            bins=residuals_bins, range=residuals_range, 
             histtype="stepfilled", linewidth=2, facecolor="none",
             edgecolor="k"#, label=f"$\eta={eta:0.0f}$"
         )
@@ -454,11 +458,32 @@ def main():
         mean_residual = coeff[1]
         residual_cut = 2.5 * abs(coeff[2]) # cut on 1 mm ~ 2 x measured residual sigma
         mask_track_matching = abs(residuals_eta - mean_residual) < residual_cut
+
+        cls_bins, cls_range = 15, (0.5,15.5)
+        cluster_size_background = rechits_cluster_size[~mask_track_matching]
+        cluster_size_muon = rechits_cluster_size[mask_track_matching]
+        cluster_size_axs.hist(
+            ak.flatten(cluster_size_background),
+            bins=cls_bins, range=cls_range,
+            histtype="step", color="red", edgecolor="red", linewidth=2,
+            label="background"
+        )
+        cluster_size_axs.hist(
+            ak.flatten(cluster_size_muon),
+            bins=cls_bins, range=cls_range,
+            histtype="step", color="blue", edgecolor="blue", linewidth=2,
+            label="muon"
+        )
+        cluster_size_axs.set_xlabel("Cluster size")
+        cluster_size_axs.set_ylabel("Events")
+        cluster_size_axs.legend()
+        print("Background cls:", ak.mean(cluster_size_background, axis=None))
+        print("Muon cls:", ak.mean(cluster_size_muon, axis=None))
         
         print("Residual - mean:", abs(residuals_eta - mean_residual))
         print("Matching tracks:", mask_track_matching)
         has_track_matching = ak.count_nonzero(mask_track_matching, axis=1)
-        print(has_track_matching)
+
         n_good_events = ak.count_nonzero(has_track_matching)
         n_triggers = ak.count(has_track_matching)
         efficiency = n_good_events / n_triggers
@@ -643,6 +668,9 @@ def main():
 
         residual_prophit_fig.tight_layout()
         residual_prophit_fig.savefig(args.odir/"residuals_prophits.png")
+
+        cluster_size_fig.savefig(args.odir/"cluster_size_background.png")
+        print("Saved to", args.odir/"cluster_size_background.png")
 
         """ Look at polar coordinates """
 
