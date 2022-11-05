@@ -140,6 +140,7 @@ def analyze_rotation(prophits, rechits, eta, odir):
 
     rotation_fig.savefig(odir/"rotation.png")
 
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("ifile", type=pathlib.Path, help="Input file")
@@ -477,8 +478,12 @@ def main():
         cluster_size_axs.set_xlabel("Cluster size")
         cluster_size_axs.set_ylabel("Events")
         cluster_size_axs.legend()
-        print("Background cls:", ak.mean(cluster_size_background, axis=None))
-        print("Muon cls:", ak.mean(cluster_size_muon, axis=None))
+        mean_cls_muon = ak.mean(cluster_size_muon, axis=None)
+        err_cls_muon = ak.std(cluster_size_muon, axis=None) / ak.count(cluster_size_muon, axis=None)**0.5
+        mean_cls_bkg = ak.mean(cluster_size_background, axis=None)
+        err_cls_bkg = ak.std(cluster_size_background, axis=None) / ak.count(cluster_size_background, axis=None)**0.5
+        print("Muon cls {0:1.2f} ± {1:1.2f}".format(mean_cls_muon, err_cls_muon))
+        print("Background cls {0:1.2f} ± {1:1.2f}".format(mean_cls_bkg, err_cls_bkg))
         
         print("Residual - mean:", abs(residuals_eta - mean_residual))
         print("Matching tracks:", mask_track_matching)
@@ -487,8 +492,8 @@ def main():
         n_good_events = ak.count_nonzero(has_track_matching)
         n_triggers = ak.count(has_track_matching)
         efficiency = n_good_events / n_triggers
-        efficiency_error = efficiency * (1/n_good_events + 1/n_triggers)**0.5
-        print(f"{n_good_events} good events over {n_triggers}: efficiency {efficiency:1.3f} +/- {efficiency_error:1.3f}")
+        err_efficiency = efficiency * (1/n_good_events + 1/n_triggers)**0.5
+        print(f"{n_good_events} good events over {n_triggers}: efficiency {efficiency:1.3f} +/- {err_efficiency:1.3f}")
         efficiency_tuples.append((n_good_events, n_triggers, efficiency))
 
         xvalues = np.linspace(bins[0], bins[-1], 1000)
@@ -670,7 +675,33 @@ def main():
         residual_prophit_fig.savefig(args.odir/"residuals_prophits.png")
 
         cluster_size_fig.savefig(args.odir/"cluster_size_background.png")
-        print("Saved to", args.odir/"cluster_size_background.png")
+
+        """ Save to scan csv file """
+        if args.scan:
+            run_number = int(args.ifile.stem)
+            print("Run number:", run_number)
+
+            columns = ["run", "efficiency", "err_efficiency", "space_resolution", "err_space_resolution", "cls_muon", "err_cls_muon", "cls_bkg", "err_cls_bkg"]
+            values = [run_number, efficiency, err_efficiency, space_resolution, err_space_resolution, mean_cls_muon, err_cls_muon, mean_cls_bkg, err_cls_bkg]
+
+            try:
+                scan_df = pd.read_csv(args.scan)
+                if run_number in scan_df["run"].values:
+                    print(f"Run {run_number} already in scan, updating...")
+                    for col, val in zip(columns, values):
+                        scan_df.loc[scan_df["run"]==run_number, col] = val
+                else:
+                    scan_df = scan_df.append({
+                        col: val for col, val in zip(columns, values)
+                    }, ignore_index=True)
+            except FileNotFoundError:
+                print("Scan file does not exist, creating it...")
+                os.makedirs(args.scan.parent, exist_ok=True)
+                scan_df = pd.DataFrame([values], columns=columns)
+
+            scan_df.to_csv(args.scan, index=False)
+            print("Scan file saved to", args.scan)
+
 
         """ Look at polar coordinates """
 
