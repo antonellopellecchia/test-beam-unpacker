@@ -93,6 +93,7 @@ configure_file(analysis/ge21.py analysis/ge21.py COPYONLY)
 configure_file(analysis/strips.py analysis/strips.py COPYONLY)
 configure_file(analysis/horns.py analysis/horns.py COPYONLY)
 configure_file(analysis/scan.py analysis/scan.py COPYONLY)
+configure_file(analysis/scans/rate.py analysis/scans/rate.py COPYONLY)
 configure_file(analysis/scans/efficiency.py analysis/scans/efficiency.py COPYONLY)
 configure_file(analysis/track_angles.py analysis/track_angles.py COPYONLY)
 
