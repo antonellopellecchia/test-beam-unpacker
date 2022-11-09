@@ -31,6 +31,15 @@ def gauss2(x, *p):
     A2*scipy.stats.norm.pdf(x, loc=mu2, scale=sigma2)
     #return gauss(x, A1, mu1, sigma1) + gauss(x, A2, mu2, sigma2)
 
+def get_efficiency(residuals, mean_residual, cut):
+    mask_track_matching = abs(residuals - mean_residual) < abs(cut)
+    has_track_matching = ak.count_nonzero(mask_track_matching, axis=1)
+    n_good_events = ak.count_nonzero(has_track_matching)
+    n_triggers = ak.count(has_track_matching)
+    efficiency = n_good_events / n_triggers
+    err_efficiency = efficiency * (1/n_good_events + 1/n_triggers)**0.5
+    return efficiency, err_efficiency
+
 def analyse_residuals(residuals, hist_range, nbins, ax, legend, xlabel):
     points, bins = np.histogram(residuals, bins=nbins, range=hist_range)
     bins = bins[:-1]+ 0.5*(bins[1:] - bins[:-1])
@@ -38,6 +47,7 @@ def analyse_residuals(residuals, hist_range, nbins, ax, legend, xlabel):
     # gaussian fit
     coeff = [len(residuals), residuals.mean(), residuals.std()]
     coeff += [len(residuals)*0.1, residuals.mean(), 10*residuals.std()]
+    coeff[2] = 10e3
     try:
         coeff, var_matrix = curve_fit(gauss2, bins, points, p0=coeff, method="lm")
     except RuntimeError:
@@ -140,7 +150,6 @@ def analyze_rotation(prophits, rechits, eta, odir):
 
     rotation_fig.savefig(odir/"rotation.png")
 
-
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("ifile", type=pathlib.Path, help="Input file")
@@ -157,7 +166,6 @@ def main():
 
     with uproot.open(args.ifile) as track_file:
         track_tree = track_file["trackTree"]
-        if args.verbose: track_tree.show()
 
         print("Reading tree...")
         # 1D branches:
@@ -168,7 +176,6 @@ def main():
         prophits_chamber = track_tree["prophitChamber"].array(entry_stop=args.events)
         prophits_eta = track_tree["prophitEta"].array(entry_stop=args.events)
         rechits_eta = track_tree["rechitEta"].array(entry_stop=args.events)
-        #prophits_eta = track_tree["prophitEta"].array(entry_stop=args.events)
         rechits_x = track_tree["rechitGlobalX"].array(entry_stop=args.events)
         rechits_y = track_tree["rechitGlobalY"].array(entry_stop=args.events)
         rechits_local_x = track_tree["rechitLocalX"].array(entry_stop=args.events)
@@ -189,7 +196,11 @@ def main():
         prophits_r = track_tree["prophitLocalR"].array(entry_stop=args.events)
         prophits_phi = track_tree["prophitLocalPhi"].array(entry_stop=args.events)
 
-        mask_chi2 = (track_x_chi2>0.1)&(track_x_chi2<2)&(track_y_chi2>0.1)&(track_y_chi2<2)
+        coarse_good, coarse_trigs = ak.count_nonzero(ak.count(rechits_x, axis=1)), ak.num(rechits_x, axis=0)
+        coarse_efficiency = coarse_good / coarse_trigs
+        print("Coarse efficiency {0:1.3f} ({1} events with hits over {2} events)".format(coarse_efficiency, coarse_good, coarse_trigs))
+
+        mask_chi2 = (track_x_chi2>0.000000001)&(track_x_chi2<20)&(track_y_chi2>0.000000001)&(track_y_chi2<20)
         #mask_chi2 = (track_x_chi2>0.)&(track_y_chi2>0.)
         rechits_chamber = rechits_chamber[mask_chi2]
         prophits_chamber = prophits_chamber[mask_chi2]
@@ -207,7 +218,7 @@ def main():
         track_x_chi2, track_y_chi2 = track_x_chi2[mask_chi2], track_y_chi2[mask_chi2]
         rechits_r, prophits_r = rechits_r[mask_chi2], prophits_r[mask_chi2]
         rechits_phi, prophits_phi = rechits_phi[mask_chi2], prophits_phi[mask_chi2]
-
+        print(len(prophits_x))
 
         ge21_chamber = args.chamber
         prophits_x, prophits_y = ak.flatten(prophits_x[prophits_chamber==ge21_chamber]), ak.flatten(prophits_y[prophits_chamber==ge21_chamber])
@@ -224,7 +235,7 @@ def main():
         rechits_cluster_center = rechits_cluster_center[rechits_chamber==ge21_chamber]
 
         """ Choose only events within a (-50,50) mm window """
-        prophit_window_mask = (abs(prophits_x)<50)&(abs(prophits_y)<50)
+        prophit_window_mask = (abs(prophits_x)<500)&(abs(prophits_y)<500)
         #prophit_window_mask = (abs(prophits_x)<100)&(abs(prophits_y)<100)
         #prophit_window_mask = (abs(prophits_x)<1000)&(abs(prophits_y)<1000)
         prophits_x, prophits_y = prophits_x[prophit_window_mask], prophits_y[prophit_window_mask]
@@ -401,25 +412,16 @@ def main():
         residuals_range, residuals_bins = (-25, 25), 100
         residuals_binning = (residuals_range[1]-residuals_range[0])/residuals_bins
 
-        efficiency_tuples = list()
-        #for ieta,eta in enumerate(etas):
-        #residuals_eta = residuals_x[rechits_eta==eta]
-
-
-        """if eta==1:
-            #Write efficiency to csv file
-            run_df = pd.read_csv("/home/gempro/testbeam/july2022/runs/runs.csv")
-            run_number = int(args.ifile.stem)
-            run_df[run_df["Run"]==run_number]["ME0 efficiency"] = efficiency
-            print(run_df)
-            run_df.to_csv("/home/gempro/testbeam/july2022/runs/runs.csv", index=False, sep=",")"""
-
         residuals_filter = (residuals_x>residuals_range[0])&(residuals_x<residuals_range[1])#&(rechits_eta==2)
         print("Residual filter:", residuals_filter)
         residuals_eta = residuals_x[residuals_filter]
-        rechits_eta = rechits_eta[residuals_filter]
+        #rechits_eta = rechits_eta[residuals_filter]
 
-        residuals_eta_flat = ak.flatten(residuals_eta)
+        #residuals_eta_flat = ak.flatten(residuals_eta)
+        residuals_min_filter = ak.argmin(abs(residuals_eta), axis=1, keepdims=True)
+        residuals_eta_flat = residuals_eta[residuals_min_filter]
+        print(residuals_min_filter)
+        print("Flat residuals for histogram:", residuals_eta_flat)
         #residuals_eta_flat = ak.flatten(residuals_x)
         points, bins, _ = residual_ax.hist(
             residuals_eta_flat,
@@ -444,7 +446,6 @@ def main():
             coeff, var_matrix = curve_fit(gauss_with_background, bins, points, p0=coeff)
             print("Final residual fit parameters:", coeff)
             perr = np.sqrt(np.diag(var_matrix))
-            pass
         except RuntimeError:
             print("Fit failed, using RMS instead...")
 
@@ -455,10 +456,25 @@ def main():
         #print(f"Space resolution for eta {eta}: {space_resolution:1.1f} +/- {err_space_resolution:1.1f}")
         print(f"Space resolution: {space_resolution:1.1f} +/- {err_space_resolution:1.1f}")
 
-        #mean_residual = ak.mean(residuals_eta_flat)
         mean_residual = coeff[1]
-        residual_cut = 2.5 * abs(coeff[2]) # cut on 1 mm ~ 2 x measured residual sigma
-        mask_track_matching = abs(residuals_eta - mean_residual) < residual_cut
+        residual_cut = 2 * abs(coeff[2]) # cut on 1 mm ~ 2 x measured residual sigma
+        mask_track_matching = abs(residuals_x - mean_residual) < residual_cut
+
+        """ Plot efficiency vs residual cut """
+        efficiency_fig, efficiency_ax = plt.figure(figsize=(12,9)), plt.axes()
+        efficiency_cuts = np.arange(0.25, 5, 0.25)
+        efficiencies_with_error = [
+            get_efficiency(residuals_x, mean_residual, coeff[2]*cut)
+            for cut in efficiency_cuts
+        ]
+        efficiencies = [ el[0] for el in efficiencies_with_error ]
+        err_efficiencies = [ el[1] for el in efficiencies_with_error ]
+        efficiency_ax.errorbar(efficiency_cuts, efficiencies, err_efficiencies, fmt="o", color="black")
+        efficiency_ax.plot(efficiency_cuts, [coarse_efficiency]*len(efficiency_cuts), "--", color="red")
+        efficiency_ax.set_xlabel("Residual cut / residual $\sigma$")
+        efficiency_ax.set_ylabel("Measured efficiency")
+        efficiency_fig.savefig(args.odir / "efficiency.png")
+        efficiency_fig.savefig(args.odir / "efficiency.pdf")
 
         cls_bins, cls_range = 15, (0.5,15.5)
         cluster_size_background = rechits_cluster_size[~mask_track_matching]
@@ -491,10 +507,8 @@ def main():
 
         n_good_events = ak.count_nonzero(has_track_matching)
         n_triggers = ak.count(has_track_matching)
-        efficiency = n_good_events / n_triggers
-        err_efficiency = efficiency * (1/n_good_events + 1/n_triggers)**0.5
+        efficiency, err_efficiency = get_efficiency(residuals_x, mean_residual, residual_cut)
         print(f"{n_good_events} good events over {n_triggers}: efficiency {efficiency:1.3f} +/- {err_efficiency:1.3f}")
-        efficiency_tuples.append((n_good_events, n_triggers, efficiency))
 
         xvalues = np.linspace(bins[0], bins[-1], 1000)
         residual_ax.plot(xvalues, gauss_with_background(xvalues, *coeff), color="red", linewidth=2)
@@ -522,6 +536,8 @@ def main():
             # residuals = residuals[np.arange(ak.num(residuals, axis=0)),min_residual_mask]
             # rechits = rechits[np.arange(ak.num(rechits, axis=0)),min_residual_mask]
 
+            print("eta", rechits_eta, ak.num(rechits_eta, axis=0))
+            print(direction, rechits, ak.num(rechits, axis=0))
             for eta in np.unique(ak.flatten(rechits_eta)):
                 hits_axs[idirection][0].hist(
                     ak.flatten(rechits[rechits_eta==eta]),
