@@ -65,7 +65,9 @@ def main():
         cls_fig, cls_axs = plt.subplots(nrows=1, ncols=n_chambers, figsize=(11*n_chambers, 9))
         profile_fig, profile_axs = plt.subplots(nrows=2, ncols=n_chambers, figsize=(11*n_chambers, 9*2))
         profile_cls_fig, profile_cls_axs = plt.subplots(nrows=2, ncols=n_chambers, figsize=(11*n_chambers, 9*2))
+        profile_cls_stacked_fig, profile_cls_stacked_axs = plt.subplots(nrows=2, ncols=n_chambers, figsize=(11*n_chambers, 9*2))
         profile_multiplicity_fig, profile_multiplicity_axs = plt.subplots(nrows=2, ncols=n_chambers, figsize=(11*n_chambers, 9*2))
+        profile_2events_fig, profile_2events_axs = plt.subplots(nrows=2, ncols=n_chambers, figsize=(11*n_chambers, 9*2))
 
         for tested_chamber in chambers_unique:
             rechits = [
@@ -102,9 +104,9 @@ def main():
                     print("High multiplicity events:")
                     for mul,r in zip(cluster_multiplicity[high_multi_filter], high_multi_rechits):
                         print("Rechit {} {} mm, multiplicity {}".format(direction, r, mul))
+                    rechits_unique = np.concatenate([ np.unique(r) for r in rechits[idirection] ])
+                    print("Rechits unique:", rechits_unique)
 
-                rechits_unique = np.concatenate([ np.unique(r) for r in rechits[idirection] ])
-                print("Rechits unique:", rechits_unique)
                 profile_axs[idirection][tested_chamber].hist(
                     #ak.flatten(rechits[idirection]),
                     np.concatenate([ np.unique(r) for r in rechits[idirection] ]),
@@ -118,14 +120,27 @@ def main():
                         ak.flatten(rechits[idirection][cluster_sizes[idirection]==cls])
                         for cls in cls_unique
                     ],
-                    bins=50, range=(-50,50),
+                    bins=100, range=(-50,50),
                     label=[ f"Cluster size {cls}" for cls in cls_unique ],
-                    alpha=0.6, histtype="bar", stacked=True
+                    histtype="step", linewidth=2
                 )
                 profile_cls_axs[idirection][tested_chamber].legend()
                 profile_cls_axs[idirection][tested_chamber].set_xlabel(f"Reconstructed {direction} (mm)")
                 profile_cls_axs[idirection][tested_chamber].set_title(f"Tracker {tested_chamber}")
 
+                profile_cls_stacked_axs[idirection][tested_chamber].hist(
+                    [
+                        ak.flatten(rechits[idirection][cluster_sizes[idirection]==cls])
+                        for cls in cls_unique
+                    ],
+                    bins=100, range=(-50,50),
+                    label=[ f"Cluster size {cls}" for cls in cls_unique ],
+                    alpha=0.6, histtype="bar", stacked=True
+                )
+                profile_cls_stacked_axs[idirection][tested_chamber].legend()
+                profile_cls_stacked_axs[idirection][tested_chamber].set_xlabel(f"Reconstructed {direction} (mm)")
+                profile_cls_stacked_axs[idirection][tested_chamber].set_title(f"Tracker {tested_chamber}")
+    
                 """profile_multiplicity_axs[idirection][tested_chamber].hist(
                     [
                         ak.flatten(rechits[idirection][cluster_multiplicity==mul])
@@ -141,9 +156,25 @@ def main():
                     np.array(ak.flatten(rec)), np.array(ak.flatten(mul)),
                     bins=(50,20), range=((-50,50), (0,20))
                 )
-                #profile_multiplicity_axs[idirection][tested_chamber].legend()
                 profile_multiplicity_axs[idirection][tested_chamber].set_xlabel(f"Reconstructed {direction} (mm)")
+                profile_multiplicity_axs[idirection][tested_chamber].set_ylabel(f"Event multiplicity")
                 profile_multiplicity_axs[idirection][tested_chamber].set_title(f"Tracker {tested_chamber}")
+
+                """ Plot events with multiplicity 2,
+                on x the first hit, on y the second.
+                Useful to debug the mapping """
+                filter_multi2 = cluster_multiplicity==2
+                rechits_multi2 = rechits[idirection][filter_multi2]
+                print("Chamber {} {}, events with multi 2: {}".format(tested_chamber, direction, rechits_multi2))
+                rechits_multi2_pairs = rechits_multi2.to_numpy().transpose()
+                profile_2events_axs[idirection][tested_chamber].plot(
+                    rechits_multi2_pairs[0], rechits_multi2_pairs[1],
+                    ".",
+                    #bins=(50,50), range=((-50,50), (-50,50))
+                )
+                profile_2events_axs[idirection][tested_chamber].set_xlabel(f"Reconstructed {direction} first hit (mm)")
+                profile_2events_axs[idirection][tested_chamber].set_ylabel(f"Reconstructed {direction} second hit (mm)")
+                profile_2events_axs[idirection][tested_chamber].set_title(f"Tracker {tested_chamber}")
 
         cls_fig.tight_layout()
         cls_fig.savefig(args.odir / "cluster_size.png")
@@ -154,8 +185,14 @@ def main():
         profile_multiplicity_fig.tight_layout()
         profile_multiplicity_fig.savefig(args.odir / "profiles_multiplicity.png")
 
+        profile_2events_fig.tight_layout()
+        profile_2events_fig.savefig(args.odir / "profiles_2events.png")
+
         profile_cls_fig.tight_layout()
         profile_cls_fig.savefig(args.odir / "profiles_cluster_size.png")
+
+        profile_cls_stacked_fig.tight_layout()
+        profile_cls_stacked_fig.savefig(args.odir / "profiles_cluster_size_stacked.png")
 
         print(f"Plots saved to {args.odir}")
 
