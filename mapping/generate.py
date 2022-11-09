@@ -17,11 +17,16 @@ def pin_to_channel(connector_type, pin):
     else:
         raise ValueError("Connector type {} not recognized".format(connector_type))
 
+def pin_to_strip(pin):
+    strip = pin-2
+    #strip = (strip/2)*(strip%2==0) + ((strip-1)/2 + 65)*(strip%2==1)
+    return strip.astype(int)
+
 def mapping_connector(connector, template_df):
     """ Generate mapping using connector geometry """
     
     vfat_strip_df = pd.read_csv(connector)
-    vfat_strip_df["strip"] = vfat_strip_df["pin"]-2
+    vfat_strip_df["strip"] = pin_to_strip(vfat_strip_df["pin"])
     if verbose: print("VFAT strip mapping:\n", vfat_strip_df)
 
     n_channels = len(vfat_strip_df.index)
@@ -54,7 +59,7 @@ def mapping_analytical(template_df):
 
     pins = np.arange(2,130)
     channels = pin_to_channel("panasonic", pins)
-    local_strips = pins - 2
+    local_strips = pins
     vfat_mapping_df = pd.DataFrame({"channel": channels, "localStrip": local_strips})
     vfat_mapping_df.set_index("channel", inplace=True)
 
