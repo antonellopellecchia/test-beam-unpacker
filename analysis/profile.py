@@ -18,12 +18,24 @@ plt.style.use(hep.style.ROOT)
 from concurrent.futures import ThreadPoolExecutor
 executor = ThreadPoolExecutor(8)
 
+def clusters_to_digis(cluster_first, cluster_size):
+    events = list()
+    for event_first,event_size in zip(cluster_first, cluster_size):
+        clusters = list()
+        for first,size in zip(event_first, event_size):
+            cluster = np.ones(size)*first
+            cluster += np.linspace(0, size-1, size)
+            clusters.append(cluster)
+        events.append(clusters)
+    return ak.Array(events)
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("ifile", type=pathlib.Path, help="Input track file")
     parser.add_argument('odir', type=pathlib.Path, help="Output directory")
     parser.add_argument("-n", "--events", type=int, default=-1, help="Number of events to analyze")
     parser.add_argument("-v", "--verbose", action="store_true", help="Activate logging")
+    parser.add_argument("--debug", action="store_true", help="Debug mapping")
     args = parser.parse_args()
     
     os.makedirs(args.odir, exist_ok=True)
@@ -33,117 +45,121 @@ def main():
         if args.verbose: rechit_tree.show()
 
         print("Reading tree...")
-        rechits_chamber = rechit_tree["rechit2DChamber"].array(entry_stop=args.events)
-        rechits_x = rechit_tree["rechit2D_X_center"].array(entry_stop=args.events)
-        rechits_y = rechit_tree["rechit2D_Y_center"].array(entry_stop=args.events)
-        cluster_size_x = rechit_tree["rechit2D_X_clusterSize"].array(entry_stop=args.events)
-        cluster_size_y = rechit_tree["rechit2D_Y_clusterSize"].array(entry_stop=args.events)
-       
-        # choose only events with hits in all chambers:
-        #mask_4hit = ak.count_nonzero(rechits_chamber>=0, axis=1)>3
-        # keep only events with both cluster sizes below 10:
-        mask_cls = (cluster_size_x<=10)&(cluster_size_y<=10)
-        rechits_chamber = rechits_chamber[mask_cls]
-        rechits_x, rechits_y = rechits_x[mask_cls], rechits_y[mask_cls]
-        cluster_size_x, cluster_size_y = cluster_size_x[mask_cls], cluster_size_y[mask_cls]
+        cluster_chamber = rechit_tree["clusterChamber"].array(entry_stop=args.events)
+        cluster_eta = rechit_tree["clusterEta"].array(entry_stop=args.events)
+        cluster_center = rechit_tree["clusterCenter"].array(entry_stop=args.events)
+        cluster_first = rechit_tree["clusterFirst"].array(entry_stop=args.events)
+        cluster_size = rechit_tree["clusterSize"].array(entry_stop=args.events)
 
-        chambers_unique = np.unique(ak.flatten(rechits_chamber))
-        cls_unique= np.array(np.unique(ak.flatten(cluster_size_x))).astype(int)
+        # choose only events with hits in all chambers:
+        #mask_4hit = ak.count_nonzero(cluster_chamber>=0, axis=1)>3
+        # keep only events with both cluster sizes below 10:
+        mask_cls = (cluster_size<=10)
+        cluster_chamber = cluster_chamber[mask_cls]
+        cluster_center= cluster_center[mask_cls]
+        cluster_size = cluster_size[mask_cls]
+
+        chambers_unique = np.unique(ak.flatten(cluster_chamber))
+        cls_unique = np.array(np.unique(ak.flatten(cluster_size))).astype(int)
         n_chambers = len(chambers_unique)
 
         if args.verbose:
-            n_events = ak.num(rechits_chamber, axis=0)
+            n_events = ak.num(cluster_chamber, axis=0)
             print(f"{n_events} events in tree")
             print(f"{n_chambers} chambers in tree")
-            print("Chambers:", rechits_chamber)
-            print("Rechits x:", rechits_x)
-            print("Rechits y:", rechits_y)
+            print("Chambers:", cluster_chamber)
+            print("Cluster center:")
                 
         # Preparing figures:
         print("Starting plotting...")
-        directions = ["x", "y"]
-        cls_fig, cls_axs = plt.subplots(nrows=1, ncols=n_chambers, figsize=(11*n_chambers, 9))
-        profile_fig, profile_axs = plt.subplots(nrows=2, ncols=n_chambers, figsize=(11*n_chambers, 9*2))
-        profile_cls_fig, profile_cls_axs = plt.subplots(nrows=2, ncols=n_chambers, figsize=(11*n_chambers, 9*2))
-        profile_cls_stacked_fig, profile_cls_stacked_axs = plt.subplots(nrows=2, ncols=n_chambers, figsize=(11*n_chambers, 9*2))
-        profile_multiplicity_fig, profile_multiplicity_axs = plt.subplots(nrows=2, ncols=n_chambers, figsize=(11*n_chambers, 9*2))
-        profile_2events_fig, profile_2events_axs = plt.subplots(nrows=2, ncols=n_chambers, figsize=(11*n_chambers, 9*2))
+        etas = np.unique(ak.flatten(cluster_eta).to_numpy())
+        n_etas = len(etas)
+        cls_fig, cls_axs = plt.subplots(nrows=n_etas, ncols=n_chambers, figsize=(11*n_chambers, 9*n_etas))
+        profile_fig, profile_axs = plt.subplots(nrows=n_etas, ncols=n_chambers, figsize=(11*n_chambers, 9*n_etas))
+        profile_cls_fig, profile_cls_axs = plt.subplots(nrows=n_etas, ncols=n_chambers, figsize=(11*n_chambers, 9*n_etas))
+        profile_cls_stacked_fig, profile_cls_stacked_axs = plt.subplots(nrows=n_etas, ncols=n_chambers, figsize=(11*n_chambers, 9*n_etas))
+        profile_multiplicity_fig, profile_multiplicity_axs = plt.subplots(nrows=n_etas, ncols=n_chambers, figsize=(11*n_chambers, 9*n_etas))
+        profile_2events_fig, profile_2events_axs = plt.subplots(nrows=n_etas, ncols=n_chambers, figsize=(11*n_chambers, 9*n_etas))
+        clusters_event_fig, clusters_event_axs = plt.subplots(nrows=n_etas, ncols=n_chambers, figsize=(11*n_chambers, 9*n_etas))
 
         for tested_chamber in chambers_unique:
-            rechits = [
-                rechits_x[rechits_chamber==tested_chamber],
-                rechits_y[rechits_chamber==tested_chamber]
-            ]
-            cluster_sizes = [
-                cluster_size_x[rechits_chamber==tested_chamber],
-                cluster_size_y[rechits_chamber==tested_chamber]
-            ]
+            filter_chamber = cluster_chamber == tested_chamber
+            cluster_center_chamber = cluster_center[filter_chamber]
+            cluster_eta_chamber = cluster_eta[filter_chamber]
+            cluster_first_chamber = cluster_first[filter_chamber]
+            cluster_size_chamber = cluster_size[filter_chamber]
+            etas_chamber = np.unique(ak.flatten(cluster_eta_chamber))
+            
             if args.verbose:
                 print(f"Processing chamber {tested_chamber}...")
-                print("\tRechits x:", rechits[0])
-                print("\tRechits y:", rechits[1])
+                print("\tCluster center:", clusters_center)
  
-            cls_axs[tested_chamber].hist2d(
-                ak.flatten(cluster_sizes[0]), ak.flatten(cluster_sizes[1])
-                #bins=100, range=(-50,50)
-            )
-            cls_axs[tested_chamber].set_xlabel("Cluster size x (mm)")
-            cls_axs[tested_chamber].set_ylabel("Cluster size y (mm)")
-            cls_axs[tested_chamber].set_title(f"Tracker {tested_chamber}")
-           
-            for idirection in range(2):
-                direction = directions[idirection]
-                cluster_size = cluster_sizes[idirection]
-                cluster_multiplicity = ak.num(rechits[idirection], axis=1)
+            for ieta, eta in enumerate(etas_chamber):
+
+                filter_eta = cluster_eta_chamber == eta
+                cluster_center_eta = cluster_center_chamber[filter_eta]
+                cluster_size_eta = cluster_size_chamber[filter_eta]
+                cluster_first_eta = cluster_first_chamber[filter_eta]
+                cluster_multiplicity = ak.num(cluster_center_eta, axis=1)
                 mul_unique = np.array(np.unique(cluster_multiplicity)).astype(int)
 
+                cluster_bins = ak.max(cluster_center_eta)-ak.min(cluster_center_eta)+1
+                cluster_range = (ak.min(cluster_center_eta)-0.5, ak.max(cluster_center_eta)+0.5)
+
+                cls_axs[ieta][tested_chamber].hist(
+                    ak.flatten(cluster_size_eta),
+                    histtype="step", linewidth=2, color="red"
+                )
+                cls_axs[ieta][tested_chamber].set_xlabel("Cluster size (mm)")
+                cls_axs[ieta][tested_chamber].set_title(f"Detector {tested_chamber} eta {eta}")
+                
                 if args.verbose:
                     print("\tMultiplicities {} from {} to {}".format(direction, mul_unique.min(), mul_unique.max()))
                     high_multi_filter = cluster_multiplicity>50
-                    high_multi_rechits = rechits[idirection][high_multi_filter]
+                    high_multi_rechits = cluster_center_eta[high_multi_filter]
                     print("High multiplicity events:")
                     for mul,r in zip(cluster_multiplicity[high_multi_filter], high_multi_rechits):
-                        print("Rechit {} {} mm, multiplicity {}".format(direction, r, mul))
-                    rechits_unique = np.concatenate([ np.unique(r) for r in rechits[idirection] ])
-                    print("Rechits unique:", rechits_unique)
+                        print("Cluster eta {} {} mm, multiplicity {}".format(eta, r, mul))
+                    clusters_unique = np.concatenate([ np.unique(r) for r in cluster_center_eta ])
+                    print("Rechits unique:", clusters_unique)
 
-                profile_axs[idirection][tested_chamber].hist(
-                    #ak.flatten(rechits[idirection]),
-                    np.concatenate([ np.unique(r) for r in rechits[idirection] ]),
-                    bins=100, range=(-50,50)
+                profile_axs[ieta][tested_chamber].hist(
+                    ak.flatten(cluster_center_eta),
+                    #np.concatenate([ np.unique(r) for r in rechits[ieta] ]),
+                    bins=cluster_bins, range=cluster_range
                 )
-                profile_axs[idirection][tested_chamber].set_xlabel(f"Reconstructed {direction} (mm)")
-                profile_axs[idirection][tested_chamber].set_title(f"Tracker {tested_chamber}")
+                profile_axs[ieta][tested_chamber].set_xlabel(f"Cluster center")
+                profile_axs[ieta][tested_chamber].set_title(f"Detector {tested_chamber} eta {eta}")
 
-                profile_cls_axs[idirection][tested_chamber].hist(
+                profile_cls_axs[ieta][tested_chamber].hist(
                     [
-                        ak.flatten(rechits[idirection][cluster_sizes[idirection]==cls])
+                        ak.flatten(cluster_center_eta[cluster_size_eta==cls])
                         for cls in cls_unique
                     ],
-                    bins=100, range=(-50,50),
+                    bins=cluster_bins, range=cluster_range,
                     label=[ f"Cluster size {cls}" for cls in cls_unique ],
                     histtype="step", linewidth=2
                 )
-                profile_cls_axs[idirection][tested_chamber].legend()
-                profile_cls_axs[idirection][tested_chamber].set_xlabel(f"Reconstructed {direction} (mm)")
-                profile_cls_axs[idirection][tested_chamber].set_title(f"Tracker {tested_chamber}")
+                profile_cls_axs[ieta][tested_chamber].legend()
+                profile_cls_axs[ieta][tested_chamber].set_xlabel(f"Cluster center")
+                profile_cls_axs[ieta][tested_chamber].set_title(f"Detector {tested_chamber} eta {eta}")
 
-                profile_cls_stacked_axs[idirection][tested_chamber].hist(
+                profile_cls_stacked_axs[ieta][tested_chamber].hist(
                     [
-                        ak.flatten(rechits[idirection][cluster_sizes[idirection]==cls])
+                        ak.flatten(cluster_center_eta[cluster_size_eta==cls])
                         for cls in cls_unique
                     ],
-                    bins=100, range=(-50,50),
+                    bins=cluster_bins, range=cluster_range,
                     label=[ f"Cluster size {cls}" for cls in cls_unique ],
                     alpha=0.6, histtype="bar", stacked=True
                 )
-                profile_cls_stacked_axs[idirection][tested_chamber].legend()
-                profile_cls_stacked_axs[idirection][tested_chamber].set_xlabel(f"Reconstructed {direction} (mm)")
-                profile_cls_stacked_axs[idirection][tested_chamber].set_title(f"Tracker {tested_chamber}")
+                profile_cls_stacked_axs[ieta][tested_chamber].legend()
+                profile_cls_stacked_axs[ieta][tested_chamber].set_xlabel(f"Cluster center")
+                profile_cls_stacked_axs[ieta][tested_chamber].set_title(f"Detector {tested_chamber} eta {eta}")
     
-                """profile_multiplicity_axs[idirection][tested_chamber].hist(
+                """profile_multiplicity_axs[ieta][tested_chamber].hist(
                     [
-                        ak.flatten(rechits[idirection][cluster_multiplicity==mul])
+                        ak.flatten(rechits[ieta][cluster_multiplicity==mul])
                         for mul in mul_unique
                     ],
                     bins=50, range=(-50,50),
@@ -151,30 +167,64 @@ def main():
                     alpha=0.6, histtype="bar", stacked=True
                 )"""
 
-                rec, mul = ak.broadcast_arrays(rechits[idirection], cluster_multiplicity)
-                profile_multiplicity_axs[idirection][tested_chamber].hist2d(
-                    np.array(ak.flatten(rec)), np.array(ak.flatten(mul)),
-                    bins=(50,20), range=((-50,50), (0,20))
+                clus, mul = ak.broadcast_arrays(cluster_center_eta, cluster_multiplicity)
+                profile_multiplicity_axs[ieta][tested_chamber].hist2d(
+                    np.array(ak.flatten(clus)), np.array(ak.flatten(mul)),
+                    bins=(cluster_bins,20), range=(cluster_range, (0,20))
                 )
-                profile_multiplicity_axs[idirection][tested_chamber].set_xlabel(f"Reconstructed {direction} (mm)")
-                profile_multiplicity_axs[idirection][tested_chamber].set_ylabel(f"Event multiplicity")
-                profile_multiplicity_axs[idirection][tested_chamber].set_title(f"Tracker {tested_chamber}")
+                profile_multiplicity_axs[ieta][tested_chamber].set_xlabel(f"Cluster center")
+                profile_multiplicity_axs[ieta][tested_chamber].set_ylabel(f"Event multiplicity")
+                profile_multiplicity_axs[ieta][tested_chamber].set_title(f"Detector {tested_chamber} eta {eta}")
 
                 """ Plot events with multiplicity 2,
                 on x the first hit, on y the second.
                 Useful to debug the mapping """
                 filter_multi2 = cluster_multiplicity==2
-                rechits_multi2 = rechits[idirection][filter_multi2]
-                print("Chamber {} {}, events with multi 2: {}".format(tested_chamber, direction, rechits_multi2))
-                rechits_multi2_pairs = rechits_multi2.to_numpy().transpose()
-                profile_2events_axs[idirection][tested_chamber].plot(
-                    rechits_multi2_pairs[0], rechits_multi2_pairs[1],
-                    ".",
-                    #bins=(50,50), range=((-50,50), (-50,50))
+                centers_multi2 = cluster_center_eta[filter_multi2]
+                first_multi2 = cluster_first_eta[filter_multi2]
+                last_multi2 = first_multi2 + cluster_size_eta[filter_multi2]
+                print("Chamber {} eta {}, events with multi 2: {}".format(tested_chamber, eta, centers_multi2))
+                centers_multi2_pairs = centers_multi2.to_numpy().transpose()
+                first_multi2_pairs = first_multi2.to_numpy().transpose()
+                last_multi2_pairs = last_multi2.to_numpy().transpose()
+                h, xedges, yedges, _ = profile_2events_axs[ieta][tested_chamber].hist2d(
+                    centers_multi2_pairs[0], last_multi2_pairs[1],
+                    bins=(cluster_bins, cluster_bins), range=(cluster_range, cluster_range)
                 )
-                profile_2events_axs[idirection][tested_chamber].set_xlabel(f"Reconstructed {direction} first hit (mm)")
-                profile_2events_axs[idirection][tested_chamber].set_ylabel(f"Reconstructed {direction} second hit (mm)")
-                profile_2events_axs[idirection][tested_chamber].set_title(f"Tracker {tested_chamber}")
+                max_index = h.argmax()
+                max_x, max_y = int(max_index/h.shape[0]), max_index%h.shape[1]
+                print(max_x, max_y, h.max(), h[max_x][max_y])
+                profile_2events_axs[ieta][tested_chamber].plot(
+                    np.linspace(cluster_range[0], cluster_range[-1]),
+                    np.linspace(cluster_range[0], cluster_range[-1]),
+                    "-", color="red"
+                )
+                profile_2events_axs[ieta][tested_chamber].set_xlabel(f"Center first cluster ")
+                profile_2events_axs[ieta][tested_chamber].set_ylabel(f"Center second cluster")
+                profile_2events_axs[ieta][tested_chamber].set_title(f"Detector {tested_chamber} eta {eta}")
+
+                if args.debug:
+                    """ Plot cluster centers vs events 
+                    for the first n_events events
+                    Useful to debug wrong clusters """
+                    n_events = 100
+                    multiplicity_filter = ak.num(cluster_center_eta, axis=1)==2 # change this for higher cluster multiplicities
+                    digis = clusters_to_digis(cluster_first_eta, cluster_size_eta)
+                    #clusters_limited = cluster_center_eta[multiplicity_filter][:n_events]
+                    digis = digis[multiplicity_filter][:n_events]
+                    for ev in digis: print(ev)
+                    event_range = np.arange(len(digis))
+                    event_broad, _ = ak.broadcast_arrays(event_range, digis)
+
+                    clusters_event_axs[ieta][tested_chamber].hist2d(
+                        ak.flatten(digis, axis=None).to_numpy(),
+                        ak.flatten(event_broad, axis=None).to_numpy(),
+                        bins=(cluster_bins,n_events),
+                        range=[cluster_range,(-0.5,n_events-0.5)]
+                    )
+                    clusters_event_axs[ieta][tested_chamber].set_xlabel("Cluster center")
+                    clusters_event_axs[ieta][tested_chamber].set_ylabel("Event number")
+                    clusters_event_axs[ieta][tested_chamber].set_title(f"Detector {tested_chamber} eta {eta}")
 
         cls_fig.tight_layout()
         cls_fig.savefig(args.odir / "cluster_size.png")
@@ -193,6 +243,9 @@ def main():
 
         profile_cls_stacked_fig.tight_layout()
         profile_cls_stacked_fig.savefig(args.odir / "profiles_cluster_size_stacked.png")
+
+        clusters_event_fig.tight_layout()
+        clusters_event_fig.savefig(args.odir / "clusters_by_events.png")
 
         print(f"Plots saved to {args.odir}")
 
