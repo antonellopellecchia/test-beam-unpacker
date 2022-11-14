@@ -223,7 +223,9 @@ def main():
                     n_events = args.by_event
                     event_ax = event_axs[ieta]
 
-                    forplot_strips = digi_strip[(chamber_filter)&(eta_filter)][:n_events]
+                    forplot_strips = digi_strip[(chamber_filter)&(eta_filter)]
+                    multiplicity_filter = ak.num(forplot_strips, axis=1)>=1 # change this for higher strip multiplicities
+                    forplot_strips = forplot_strips[multiplicity_filter][:n_events]
                     n_strips = ak.max(forplot_strips)
                     strip_range = np.arange(n_strips)
                     event_range = np.arange(len(forplot_strips))
@@ -232,6 +234,10 @@ def main():
                         print(f"{n_events} events, {n_strips} strips")
                         print("Broadcasted index:", ak.flatten(event_broad))
                         print("Strips:", ak.flatten(forplot_strips))
+
+                        print("Printing strips by event:")
+                        for evt_strips in forplot_strips: print(evt_strips)
+
                     event_ax.hist2d(
                         ak.flatten(forplot_strips, axis=None).to_numpy(),
                         ak.flatten(event_broad, axis=None).to_numpy(),
