@@ -7,6 +7,8 @@ import pandas as pd
 import awkward as ak
 import uproot
 
+import matplotlib as mpl
+mpl.use('Agg')
 from matplotlib import pyplot as plt
 import mplhep as hep
 plt.style.use(hep.style.ROOT)
@@ -15,107 +17,130 @@ def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument("ifile", type=pathlib.Path)
-    parser.add_argument("ofile", type=pathlib.Path)
+    parser.add_argument("odir", type=pathlib.Path)
     parser.add_argument("method", type=str)
     parser.add_argument("--start", type=int, default=0)
+    parser.add_argument("--rundir", type=pathlib.Path)
     parser.add_argument("--verbose", action="store_true")
-    parser.add_argument("--pulse-stretch", type=int, default=7) 
+    parser.add_argument("--pulse-stretch", type=int, default=0) 
     parser.add_argument("-n", "--events", type=int, default=-1)
     args = parser.parse_args()
 
-    #os.makedirs(args.odir, exist_ok=True)
+    os.makedirs(args.odir, exist_ok=True)
 
     if args.method == "daq":
         
-        if args.verbose: print("Pulse stretch", args.pulse_stretch)
+        print("Pulse stretch", args.pulse_stretch)
 
         with uproot.open(args.ifile) as input_file:
             input_tree = input_file["outputtree"]
 
-            if args.verbose: print("Reading input tree...")
-            slots = input_tree["slot"].array(entry_start=args.start, entry_stop=args.events)
-            ohs = input_tree["OH"].array(entry_start=args.start, entry_stop=args.events)
-            vfats = input_tree["VFAT"].array(entry_start=args.start, entry_stop=args.events)
-            channels = input_tree["CH"].array(entry_start=args.start, entry_stop=args.events)
+            print("Reading input tree...")
+            chambers = input_tree["digiChamber"].array(entry_start=args.start, entry_stop=args.events)
+            etas = input_tree["digiEta"].array(entry_start=args.start, entry_stop=args.events)
+            strips = input_tree["digiStrip"].array(entry_start=args.start, entry_stop=args.events)
         
-            list_slots = np.unique(ak.flatten(slots, axis=None))
-            list_oh = np.unique(ak.flatten(ohs, axis=None))
-            list_vfat = np.unique(ak.flatten(vfats, axis=None))
-
             rate_tuples = list()
 
-            total_triggers = ak.num(slots, axis=0)
-            if args.verbose: print(f"Taken {total_triggers} triggers ")
+            total_triggers = ak.num(chambers, axis=0)
+            daq_time = total_triggers * (args.pulse_stretch+1) * 25e-9
+            print(f"Taken {total_triggers} triggers, DAQ time {daq_time*1e9:1.0f} ns")
+            
+            chambers_unique = np.unique(ak.flatten(chambers))
+            etas_unique = np.unique(ak.flatten(etas))
+            nrows, ncols = len(etas_unique), len(chambers_unique)
+            rate_fig, rate_axs = plt.subplots(nrows=nrows, ncols=ncols, figsize=(11*ncols, 9*nrows))
+            rate2d_fig, rate2d_axs = plt.subplots(nrows=nrows, ncols=ncols, figsize=(11*ncols, 9*nrows))
 
-            for slot in list_slots:
+            for ichamber,chamber in enumerate(np.unique(ak.flatten(chambers))):
 
-                ohs_slot = ohs[slots==slot]
-                vfats_slot = vfats[slots==slot]
-                channels_slot = channels[slots==slot]
+                eta_chamber = etas[chambers==chamber]
+                strips_chamber = strips[chambers==chamber]
 
-                for oh in list_oh:
+                for ieta,eta in enumerate(np.unique(ak.flatten(eta_chamber))):
 
-                    vfats_oh = vfats_slot[ohs_slot==oh]
-                    channels_oh = channels_slot[ohs_slot==oh]
+                    strips_eta = strips_chamber[eta_chamber==eta]
+                    strips_unique = np.unique(ak.flatten(strips_eta))
 
-                    for vfat in list_vfat:
+                    min_strip, max_strip = ak.min(strips_eta, axis=None), ak.max(strips_eta, axis=None)
+                    strip_bins = max_strip - min_strip + 1
+                    strip_range = (min_strip-0.5, max_strip+0.5)
+                    rate_axs[ieta][ichamber].hist(
+                        ak.flatten(strips_eta),
+                        weights=np.ones(len(ak.flatten(strips_eta)))/daq_time/1e3,
+                        bins=strip_bins, range=strip_range,
+                        histtype="step", color="blue", linewidth=2
+                    )
+                    rate_axs[ieta][ichamber].set_xlabel("Strip")
+                    rate_axs[ieta][ichamber].set_ylabel("Rate (kHz)")
+                    rate_axs[ieta][ichamber].set_title("Detector {} eta {}".format(chamber, eta))
 
-                        channels_vfat = channels_oh[vfats_oh==vfat]
-                        multiplicities = ak.sum(channels_vfat, axis=1)
-                        event_count = ak.count_nonzero(multiplicities)
-                        event_rate = event_count / (total_triggers * (args.pulse_stretch+1) * 25e-9)
-                        event_rate_error = np.sqrt(event_count) / (total_triggers * (args.pulse_stretch+1) * 25e-9)
-                        if args.verbose: print("slot {}, oh {}, vfat {}, count {}; rate {}".format(slot, oh, vfat, event_count, event_rate))
-                        rate_tuples.append((slot, oh, vfat, event_count, event_rate, event_rate_error, total_triggers))
+                    for strip in strips_unique:
+                        strip_occurrency = ak.count_nonzero(ak.flatten(strips_eta==strip))
+                        event_rate = strip_occurrency / daq_time
+                        event_rate_error = np.sqrt(strip_occurrency) / daq_time
+                        if args.verbose: print("chamber {}, eta {}, strip {}, count {}; rate {}".format(chamber, eta, strip, strip_occurrency, event_rate))
+                        rate_tuples.append((chamber, eta, strip, strip_occurrency, total_triggers, event_rate, event_rate_error))
                         
-            rate_df = pd.DataFrame(rate_tuples, columns=["slot", "oh", "vfat", "counts", "rate", "rate_error", "triggers"])
-            #rate_df.to_csv(args.odir / "rate.log")
+            rate_df = pd.DataFrame(rate_tuples, columns=["chamber", "eta", "strip", "counts", "triggers", "rate", "rate_error"])
+            rate_df.to_csv(args.odir / "rate.csv", index=None)
+            print("Rates per strip saved to", args.odir / "rate.csv")
+
+            rate_fig.tight_layout()
+            rate_fig.savefig(args.odir / "rate.png")
+            rate_fig.savefig(args.odir / "rate.pdf")
+
+            rate_avg_df = rate_df.groupby(["chamber", "eta"]).apply(np.mean)
+            print("Average rates:")
+            print(rate_avg_df)
+            rate_avg_df.to_csv(args.odir / "rate_average.csv", index=None)
+            print("Average rates saved to", args.odir / "rate_average.csv")
 
     elif args.method == "sbit":
 
         rate_df = pd.read_csv(args.ifile, sep=";")
         rate_df["slot"] = 0
 
-    if args.verbose:
-        print("Rate dataframe")
-        print(rate_df)
+        print("Rate measurement with sbit discontinued for now. Please revert to a previous commit if you really need this.")
+        sys.exit(1)
 
-    vfat_mapping = {
-            ( 0, 1 ): (3, "x"),
-            ( 2, 3 ): (3, "y"),
-            ( 4, 5 ): (2, "x"),
-            ( 6, 7 ): (2, "y"),
-            ( 8, 9 ): (1, "x"),
-            ( 10, 11 ): (1, "y")
-    }
+    elif args.method == "scan":
 
-    rate_chamber_tuples = list()
+        runs_df = pd.read_csv(args.ifile)
+        print(runs_df)
 
-    list_slots = rate_df["slot"].unique()
-    for slot in list_slots:
-        rate_df_slot = rate_df[rate_df["slot"]==slot]
-        if slot == 1:
-            total_rate = rate_df_slot["rate"].sum()
-            total_rate_error = rate_df_slot["rate_error"].sum()
-            if args.verbose: print("ME0 rate", total_rate)
-            rate_chamber_tuples.append(("me0", "x", total_rate, total_rate_error))
-        elif slot == 0:
-            for vfat1, vfat2 in vfat_mapping:
+        rate_dataframes = list()
+        for run_number in runs_df.run:
+            source_abs = runs_df[runs_df.run==run_number].attenuation.iloc[0]
+            run_csv = args.rundir / f"{run_number:04d}/rate_average.csv"
+            run_df = pd.read_csv(run_csv)
+            run_df["source_abs"] = source_abs
+            rate_dataframes.append(run_df)
+        rate_df = pd.concat(rate_dataframes)[["source_abs", "chamber", "eta", "rate"]]
 
-                tracker, direction = vfat_mapping[(vfat1, vfat2)]
+        rates_average_df = rate_df.groupby(["chamber", "source_abs"]).apply(np.mean)
 
-                rate_vfat1 = rate_df_slot[rate_df_slot["vfat"]==vfat1]["rate"].iloc[0]
-                rate_vfat2 = rate_df_slot[rate_df_slot["vfat"]==vfat2]["rate"].iloc[0]
+        chambers = rates_average_df.chamber.unique()
+        rate_fig, rate_axs = plt.subplots(nrows=1, ncols=len(chambers), figsize=(11*len(chambers), 9))
+        for ichamber,chamber in enumerate(chambers):
+            ax = rate_axs[ichamber]
+            chamber_rate_df = rates_average_df[rates_average_df.chamber==chamber]
+            ax.plot(
+                chamber_rate_df.source_abs, chamber_rate_df.rate,
+                "o", color="black", label=f"Detector {chamber:1.0f}"
+            )
+            ax.legend()
+            ax.set_xlabel("Source absorption factor")
+            ax.set_ylabel("Average rate (kHz/strip)")
+            hep.cms.text("Muon Preliminary", ax=ax)
+            ax.set_xscale("log")
+            ax.set_yscale("log")
 
-                rate_vfat1_error = rate_df_slot[rate_df_slot["vfat"]==vfat1]["rate_error"].iloc[0]
-                rate_vfat2_error = rate_df_slot[rate_df_slot["vfat"]==vfat2]["rate_error"].iloc[0]
+        rates_average_df.to_csv(args.odir / "rate.csv")
+        print("Rate file saved to", args.odir / "rate.csv")
 
-                total_rate = rate_vfat1 + rate_vfat2
-                total_rate_error = (rate_vfat1_error**2 + rate_vfat2_error**2)**0.5
-                rate_chamber_tuples.append((tracker, direction, total_rate, total_rate_error))
-
-    rate_chamber_df = pd.DataFrame(rate_chamber_tuples, columns=["chamber", "direction", "rate", "rate_error"])
-    print(rate_chamber_df)
-    rate_chamber_df.to_csv(args.ofile, index=False)
+        rate_fig.tight_layout()
+        rate_fig.savefig(args.odir / "rate.png")
+        rate_fig.savefig(args.odir / "rate.pdf")
 
 if __name__=='__main__': main()
