@@ -32,6 +32,20 @@ def gauss2(x, *p):
     #return gauss(x, A1, mu1, sigma1) + gauss(x, A2, mu2, sigma2)
 
 def get_efficiency(residuals, mean_residual, cut):
+
+    residuals_flat = ak.flatten(residuals)
+    A = ak.count_nonzero(abs(residuals_flat-mean_residual)<abs(cut))
+    B = ak.count_nonzero(abs(residuals_flat-mean_residual-20)<abs(cut))
+
+    mask_track_matching = abs(residuals_flat - mean_residual) < abs(cut)
+    has_track_matching = ak.count_nonzero(mask_track_matching)
+    n_triggers = ak.num(residuals, axis=0)
+
+    stat_efficiency = (A-B)/n_triggers
+    err_stat_efficiency = stat_efficiency * (1/(A-B) + 1/n_triggers)**0.5
+
+    return stat_efficiency, err_stat_efficiency
+
     mask_track_matching = abs(residuals - mean_residual) < abs(cut)
     has_track_matching = ak.count_nonzero(mask_track_matching, axis=1)
     n_good_events = ak.count_nonzero(has_track_matching)
@@ -197,13 +211,11 @@ def main():
         prophits_r = track_tree["prophitLocalR"].array(entry_stop=args.events)
         prophits_phi = track_tree["prophitLocalPhi"].array(entry_stop=args.events)
 
-        coarse_good, coarse_trigs = ak.count_nonzero(ak.count(rechits_x, axis=1)), ak.num(rechits_x, axis=0)
-        coarse_efficiency = coarse_good / coarse_trigs
-        print("Coarse efficiency {0:1.3f} ({1} events with hits over {2} events)".format(coarse_efficiency, coarse_good, coarse_trigs))
-
         #mask_chi2 = (track_x_chi2>0.000000001)&(track_x_chi2<20)&(track_y_chi2>0.000000001)&(track_y_chi2<20)
         #mask_chi2 = (track_x_chi2>0.1)&(track_x_chi2<20)&(track_y_chi2>0.1)&(track_y_chi2<20)
-        mask_chi2 = (track_x_chi2>0.)&(track_y_chi2>0.)
+        #mask_chi2 = (track_x_chi2>0.)&(track_y_chi2>0.)
+        track_chi2 = (track_x_chi2*2 + track_y_chi2*2)/4
+        mask_chi2 = (track_chi2>0.2)&(track_chi2<10)
         rechits_chamber = rechits_chamber[mask_chi2]
         prophits_chamber = prophits_chamber[mask_chi2]
         rechits_eta = rechits_eta[mask_chi2]
@@ -218,9 +230,9 @@ def main():
         prophits_local_x, prophits_local_y = prophits_local_x[mask_chi2], prophits_local_y[mask_chi2]
         track_intercept_x, track_intercept_y = track_intercept_x[mask_chi2], track_intercept_y[mask_chi2]
         track_x_chi2, track_y_chi2 = track_x_chi2[mask_chi2], track_y_chi2[mask_chi2]
+        track_chi2 = track_chi2[mask_chi2]
         rechits_r, prophits_r = rechits_r[mask_chi2], prophits_r[mask_chi2]
         rechits_phi, prophits_phi = rechits_phi[mask_chi2], prophits_phi[mask_chi2]
-        print(len(prophits_x))
 
         ge21_chamber = args.chamber
         prophits_x, prophits_y = ak.flatten(prophits_x[prophits_chamber==ge21_chamber]), ak.flatten(prophits_y[prophits_chamber==ge21_chamber])
@@ -257,6 +269,10 @@ def main():
         residuals_r, residuals_phi = prophits_r-rechits_r, prophits_phi-rechits_phi
         residuals_local_x, residuals_local_y = prophits_local_x-rechits_local_x, prophits_local_y-rechits_local_y
 
+        coarse_good, coarse_trigs = ak.count_nonzero(ak.count(rechits_x, axis=1)), ak.num(rechits_x, axis=0)
+        coarse_efficiency = coarse_good / coarse_trigs
+        print("Coarse efficiency {0:1.3f} ({1} events with hits over {2} events)".format(coarse_efficiency, coarse_good, coarse_trigs))
+
         if args.verbose:
             print("track intercept x:", track_intercept_x)
             print("rechit chamber:", rechits_chamber)
@@ -290,9 +306,9 @@ def main():
         print("All chi2:", track_allchi2)
         #chi2_ax.hist(track_x_chi2, color="green", label="$χ^2_x$", alpha=0.5, range=chi2_range, bins=chi2_bins)
         #chi2_ax.hist(track_y_chi2, color="blue", label="$χ^2_y$", alpha=0.5, range=chi2_range, bins=chi2_bins)
-        chi2_ax.hist(track_x_chi2+track_y_chi2, color="purple", label="best track $χ^2$", alpha=0.5, range=chi2_range, bins=chi2_bins)
-        chi2_ax.hist(ak.flatten(track_allchi2), color="red", label="discarded track $χ^2$", alpha=0.5, range=chi2_range, bins=chi2_bins)
-        chi2_ax.set_xlabel("reduced $χ^2$")
+        chi2_ax.hist(track_chi2, color="blue", label="Best track $χ^2$", histtype="step", linewidth=2, range=chi2_range, bins=chi2_bins)
+        chi2_ax.hist(ak.flatten(track_allchi2/2), color="red", label="Discarded track $χ^2$", histtype="step", linewidth=2, range=chi2_range, bins=chi2_bins)
+        chi2_ax.set_xlabel("Reduced $χ^2$")
         #chi2_ax.set_yscale("log")
         chi2_ax.legend()
         chi2_fig.savefig(args.odir / "chi2.png")
@@ -419,10 +435,9 @@ def main():
         residuals_eta = residuals_x[residuals_filter]
         #rechits_eta = rechits_eta[residuals_filter]
 
-        #residuals_eta_flat = ak.flatten(residuals_eta)
-        residuals_min_filter = ak.argmin(abs(residuals_eta), axis=1, keepdims=True)
-        residuals_eta_flat = residuals_eta[residuals_min_filter]
-        print(residuals_min_filter)
+        residuals_eta_flat = ak.flatten(residuals_eta)
+        #residuals_min_filter = ak.argmin(abs(residuals_eta), axis=1, keepdims=True)
+        #residuals_eta_flat = residuals_eta[residuals_min_filter]
         print("Flat residuals for histogram:", residuals_eta_flat)
         #residuals_eta_flat = ak.flatten(residuals_x)
         points, bins, _ = residual_ax.hist(
@@ -468,20 +483,20 @@ def main():
             print("Space resolution for angle", args.save_angle, "saved to", angle_path)
 
         mean_residual = coeff[1]
-        residual_cut = 3.5 * abs(coeff[2]) # cut on 1 mm ~ 2 x measured residual sigma
+        residual_cut = 2.5 * abs(coeff[2]) # cut on 1 mm ~ 2 x measured residual sigma
         mask_track_matching = abs(residuals_x - mean_residual) < residual_cut
 
         A = ak.count_nonzero(abs(residuals_eta_flat-mean_residual)<abs(residual_cut))
-        B = ak.count_nonzero(abs(residuals_eta_flat-mean_residual-20)<residual_cut)
+        B = ak.count_nonzero(abs(residuals_eta_flat-mean_residual-20)<abs(residual_cut))
 
         mask_track_matching = abs(residuals_eta_flat - mean_residual) < abs(residual_cut)
-        has_track_matching = ak.count_nonzero(mask_track_matching, axis=1)
-        n_triggers = ak.count(has_track_matching)
+        has_track_matching = ak.count_nonzero(mask_track_matching)
+        n_triggers = ak.num(prophits_x, axis=0)
 
-        stat_efficiency = (A-B)/(n_triggers-B)
-        err_stat_efficiency = stat_efficiency * (1/(A-B) + 1/(n_triggers-B))**0.5
+        stat_efficiency = (A-B)/n_triggers
+        err_stat_efficiency = stat_efficiency * (1/(A-B) + 1/n_triggers)**0.5
         print(f"A {A}, B {B}, N {n_triggers}")
-        print(f"New efficiency: {stat_efficiency} +- {err_stat_efficiency}")
+        print(f"Statistical efficiency: {stat_efficiency} +- {err_stat_efficiency}")
 
         """ Plot efficiency vs residual cut """
         efficiency_fig, efficiency_ax = plt.figure(figsize=(12,9)), plt.axes()
@@ -499,24 +514,10 @@ def main():
         efficiency_fig.savefig(args.odir / "efficiency.png")
         efficiency_fig.savefig(args.odir / "efficiency.pdf")
 
-        cls_bins, cls_range = 15, (0.5,15.5)
-        cluster_size_background = rechits_cluster_size[~mask_track_matching]
-        cluster_size_muon = rechits_cluster_size[mask_track_matching]
-        cluster_size_axs.hist(
-            ak.flatten(cluster_size_background),
-            bins=cls_bins, range=cls_range,
-            histtype="step", color="red", edgecolor="red", linewidth=2,
-            label="background"
-        )
-        cluster_size_axs.hist(
-            ak.flatten(cluster_size_muon),
-            bins=cls_bins, range=cls_range,
-            histtype="step", color="blue", edgecolor="blue", linewidth=2,
-            label="muon"
-        )
-        cluster_size_axs.set_xlabel("Cluster size")
-        cluster_size_axs.set_ylabel("Events")
-        cluster_size_axs.legend()
+        """ Plot cluster size with track matching """
+        cluster_size_matching = abs(residuals_x - mean_residual) < abs(residual_cut)
+        cluster_size_background = rechits_cluster_size[~cluster_size_matching]
+        cluster_size_muon = rechits_cluster_size[cluster_size_matching]
         mean_cls_muon = ak.mean(cluster_size_muon, axis=None)
         err_cls_muon = ak.std(cluster_size_muon, axis=None) / ak.count(cluster_size_muon, axis=None)**0.5
         mean_cls_bkg = ak.mean(cluster_size_background, axis=None)
@@ -524,12 +525,28 @@ def main():
         print("Muon cls {0:1.2f} ± {1:1.2f}".format(mean_cls_muon, err_cls_muon))
         print("Background cls {0:1.2f} ± {1:1.2f}".format(mean_cls_bkg, err_cls_bkg))
         
+        cls_bins, cls_range = 15, (0.5,15.5)
+        cluster_size_axs.hist(
+            ak.flatten(cluster_size_background),
+            bins=cls_bins, range=cls_range,
+            histtype="step", color="red", edgecolor="red", linewidth=2,
+            label="Background - average {0:1.2f} ± {1:1.2f}".format(mean_cls_bkg, err_cls_bkg)
+        )
+        cluster_size_axs.hist(
+            ak.flatten(cluster_size_muon),
+            bins=cls_bins, range=cls_range,
+            histtype="step", color="blue", edgecolor="blue", linewidth=2,
+            label="Muon - average {0:1.2f} ± {1:1.2f}".format(mean_cls_muon, err_cls_muon)
+        )
+        cluster_size_axs.set_xlabel("Cluster size")
+        cluster_size_axs.set_ylabel("Events")
+        cluster_size_axs.legend()
+        
         print("Residual - mean:", abs(residuals_eta - mean_residual))
         print("Matching tracks:", mask_track_matching)
-        has_track_matching = ak.count_nonzero(mask_track_matching, axis=1)
 
-        n_good_events = ak.count_nonzero(has_track_matching)
-        n_triggers = ak.count(has_track_matching)
+        n_good_events = ak.count_nonzero(mask_track_matching)
+        n_triggers = ak.count(mask_track_matching)
         efficiency, err_efficiency = get_efficiency(residuals_x, mean_residual, residual_cut)
         print(f"{n_good_events} good events over {n_triggers}: efficiency {efficiency:1.3f} +/- {err_efficiency:1.3f}")
 
