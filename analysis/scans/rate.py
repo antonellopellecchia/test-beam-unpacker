@@ -66,11 +66,11 @@ def main():
 
     efficiency_ax.errorbar(
         rate_nocomp, eff_nocomp, err_eff_nocomp, fmt="o",
-        label=f"No compensation $\\tau$ {tau_nocomp:1.1f} ± {err_tau_nocomp:1.1f} ns", color="red"
+        label=f"No compensation - $\\tau$ = {tau_nocomp:1.1f} ± {err_tau_nocomp:1.1f} ns", color="red"
     )
     efficiency_ax.errorbar(
         rate_comp, eff_comp, err_eff_comp, fmt="o",
-        label=f"Compensation $\\tau$ {tau_comp:1.1f} ± {err_tau_comp:1.1f} ns", color="blue"
+        label=f"Compensation - $\\tau$ = {tau_comp:1.1f} ± {err_tau_comp:1.1f} ns", color="blue"
     )
 
     efficiency_ax.set_xlabel("Background rate (kHz/strip)")
