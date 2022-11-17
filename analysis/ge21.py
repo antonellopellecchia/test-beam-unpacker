@@ -159,6 +159,7 @@ def main():
     parser.add_argument("--chamber", type=int, default=4, help="Tested chamber (default 4, i.e. GE2/1)")
     parser.add_argument("--rotation", action="store_true", help="Determine rotation corrections")
     parser.add_argument("--alignment", type=float, nargs="+", default=[0, 0, 0], help="x, y, angle")
+    parser.add_argument("--save-angle", type=float)
     parser.add_argument("--scan", type=pathlib.Path, help="Output scan file")
     args = parser.parse_args()
     
@@ -200,8 +201,9 @@ def main():
         coarse_efficiency = coarse_good / coarse_trigs
         print("Coarse efficiency {0:1.3f} ({1} events with hits over {2} events)".format(coarse_efficiency, coarse_good, coarse_trigs))
 
-        mask_chi2 = (track_x_chi2>0.000000001)&(track_x_chi2<20)&(track_y_chi2>0.000000001)&(track_y_chi2<20)
-        #mask_chi2 = (track_x_chi2>0.)&(track_y_chi2>0.)
+        #mask_chi2 = (track_x_chi2>0.000000001)&(track_x_chi2<20)&(track_y_chi2>0.000000001)&(track_y_chi2<20)
+        #mask_chi2 = (track_x_chi2>0.1)&(track_x_chi2<20)&(track_y_chi2>0.1)&(track_y_chi2<20)
+        mask_chi2 = (track_x_chi2>0.)&(track_y_chi2>0.)
         rechits_chamber = rechits_chamber[mask_chi2]
         prophits_chamber = prophits_chamber[mask_chi2]
         rechits_eta = rechits_eta[mask_chi2]
@@ -409,7 +411,7 @@ def main():
         #residual_fig, residual_axs = plt.subplots(ncols=len(etas), nrows=1, figsize=(12*len(etas),9))
         residual_fig, residual_ax = plt.figure(figsize=(12,9)), plt.axes()
 
-        residuals_range, residuals_bins = (-25, 25), 100
+        residuals_range, residuals_bins = (-40, 40), 100
         residuals_binning = (residuals_range[1]-residuals_range[0])/residuals_bins
 
         residuals_filter = (residuals_x>residuals_range[0])&(residuals_x<residuals_range[1])#&(rechits_eta==2)
@@ -430,6 +432,7 @@ def main():
             edgecolor="k"#, label=f"$\eta={eta:0.0f}$"
         )
         bins = bins[:-1]+ 0.5*(bins[1:] - bins[:-1])
+
         
         # gaussian fit
         gauss_with_background = lambda x,A,mu,sigma,m,q: gauss(x,A,mu,sigma) + m*x+q
@@ -455,10 +458,30 @@ def main():
         space_resolution, err_space_resolution = 1e3*coeff[2], 1e3*perr[2]
         #print(f"Space resolution for eta {eta}: {space_resolution:1.1f} +/- {err_space_resolution:1.1f}")
         print(f"Space resolution: {space_resolution:1.1f} +/- {err_space_resolution:1.1f}")
+        if args.save_angle:
+            angle_path = args.odir / "angle_corrections.csv"
+            if not os.path.isfile(angle_path):
+                with open(angle_path, "w") as angle_file:
+                    angle_file.write("angle;space_resolution;err_space_resolution\n")
+            with open(angle_path, "a") as angle_file:
+                angle_file.write(f"{args.save_angle};{space_resolution};{err_space_resolution}\n")
+            print("Space resolution for angle", args.save_angle, "saved to", angle_path)
 
         mean_residual = coeff[1]
-        residual_cut = 2 * abs(coeff[2]) # cut on 1 mm ~ 2 x measured residual sigma
+        residual_cut = 3.5 * abs(coeff[2]) # cut on 1 mm ~ 2 x measured residual sigma
         mask_track_matching = abs(residuals_x - mean_residual) < residual_cut
+
+        A = ak.count_nonzero(abs(residuals_eta_flat-mean_residual)<abs(residual_cut))
+        B = ak.count_nonzero(abs(residuals_eta_flat-mean_residual-20)<residual_cut)
+
+        mask_track_matching = abs(residuals_eta_flat - mean_residual) < abs(residual_cut)
+        has_track_matching = ak.count_nonzero(mask_track_matching, axis=1)
+        n_triggers = ak.count(has_track_matching)
+
+        stat_efficiency = (A-B)/(n_triggers-B)
+        err_stat_efficiency = stat_efficiency * (1/(A-B) + 1/(n_triggers-B))**0.5
+        print(f"A {A}, B {B}, N {n_triggers}")
+        print(f"New efficiency: {stat_efficiency} +- {err_stat_efficiency}")
 
         """ Plot efficiency vs residual cut """
         efficiency_fig, efficiency_ax = plt.figure(figsize=(12,9)), plt.axes()
@@ -697,8 +720,9 @@ def main():
             run_number = int(args.ifile.stem)
             print("Run number:", run_number)
 
-            columns = ["run", "efficiency", "err_efficiency", "space_resolution", "err_space_resolution", "cls_muon", "err_cls_muon", "cls_bkg", "err_cls_bkg"]
-            values = [run_number, efficiency, err_efficiency, space_resolution, err_space_resolution, mean_cls_muon, err_cls_muon, mean_cls_bkg, err_cls_bkg]
+            columns = ["run", "efficiency", "err_efficiency", "stat_efficiency", "err_stat_efficiency", "space_resolution", "err_space_resolution", "cls_muon", "err_cls_muon", "cls_bkg", "err_cls_bkg"]
+            values = [run_number, efficiency, err_efficiency, stat_efficiency, err_stat_efficiency, space_resolution, err_space_resolution, mean_cls_muon, err_cls_muon, mean_cls_bkg, err_cls_bkg]
+            #values = [run_number, stat_efficiency, err_stat_efficiency, space_resolution, err_space_resolution, mean_cls_muon, err_cls_muon, mean_cls_bkg, err_cls_bkg]
 
             try:
                 scan_df = pd.read_csv(args.scan)
