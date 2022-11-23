@@ -61,6 +61,7 @@ def main():
     vfats = list(enumerate(rate_df["vfat"].unique()))
     vfat_index = dict(vfats)
     vfat_index = { v: k for k, v in vfat_index.items()}
+    print(vfat_index)
 
     deadtime_tuples = list()
     def analyze_rate(vfat_df):
@@ -152,7 +153,7 @@ def main():
                 efficiency_ax.flat[iax].errorbar(true_rate/1e3, efficiency, yerr=err_efficiency, fmt=".", color="black")
                 efficiency_ax.flat[iax].set_xscale("log")
             except RuntimeError:
-                print("Could not fit, skipping average plot for VFAT {}, channel {}".format(vfat, channel))
+                print("Could not fit, skipping average plot for VFAT {}".format(vfat))
             
             
             if not efficiency_df.empty and args.strips:
@@ -211,7 +212,7 @@ def main():
         efficiency_ax.flat[iax].set_ylabel("Efficiency")
         efficiency_ax.flat[iax].set_title("VFAT {}".format(vfat))
 
-    nvfats = 4
+    nvfats = len(vfats)
     nrows = int(nvfats**0.5)
     ncols = int(nvfats/nrows)
     rate_fig, rate_ax = plt.subplots(nrows=nrows, ncols=ncols, figsize=(11*ncols,9*nrows))
