@@ -81,7 +81,8 @@ def main():
         prophits_r = track_tree["prophitLocalR"].array(entry_stop=args.events)
         prophits_phi = track_tree["prophitLocalPhi"].array(entry_stop=args.events)
 
-        mask_chi2 = (track_x_chi2>0.1)&(track_x_chi2<2)&(track_y_chi2>0.1)&(track_y_chi2<2)
+        track_chi2 = (track_x_chi2*2 + track_y_chi2*2)/4
+        mask_chi2 = (track_chi2>0.2)&(track_chi2<10)
         rechit_chamber = rechit_chamber[mask_chi2]
         prophit_chamber = prophit_chamber[mask_chi2]
         rechits_eta = rechits_eta[mask_chi2]
@@ -137,13 +138,15 @@ def main():
 
             os.makedirs(args.odir / str(theta), exist_ok=True)
             space_resolutions = list()
- 
-            strip_matching_fig, strip_matching_axs = plt.subplots(ncols=ncols, nrows=nrows, figsize=(10*ncols,8*nrows))
-            residuals_x_fig, residuals_x_axs = plt.subplots(ncols=ncols, nrows=nrows, figsize=(10*ncols,8*nrows))
-            strip_residuals_fig, strip_residuals_axs = plt.subplots(ncols=2, nrows=1, figsize=(24,10))
-            residuals_fig, residuals_axs = plt.subplots(ncols=2, nrows=1, figsize=(20,8))
-            residuals_phi_fig, residuals_phi_axs = plt.subplots(ncols=2, nrows=1, figsize=(24,10))
-           
+
+            n_eta = len(etas)
+            strip_matching_fig, strip_matching_axs = plt.subplots(ncols=ncols, nrows=nrows, figsize=(11*ncols,9*nrows))
+            residuals_x_fig, residuals_x_axs = plt.subplots(ncols=ncols, nrows=nrows, figsize=(11*ncols,9*nrows))
+            strip_residuals_fig, strip_residuals_axs = plt.subplots(ncols=n_eta, nrows=1, figsize=(11*n_eta,9))
+            residuals_fig, residuals_axs = plt.subplots(ncols=n_eta, nrows=1, figsize=(11*n_eta,9))
+            residuals_phi_fig, residuals_phi_axs = plt.subplots(ncols=n_eta, nrows=1, figsize=(11*n_eta,9))
+          
+            print(etas)
             for ieta,eta in enumerate(etas):
                 
                 eta_mask = ak.any(rechits_eta==eta, axis=1)
@@ -165,13 +168,14 @@ def main():
                 """ Apply angular correction """
                 prophits_x_corrected = (prophits_x_eta-x0) * np.cos(theta) - (prophits_y_eta-y0) * np.sin(theta)
 
-                strip_window =  (digi_strip_eta>280)&(digi_strip_eta<315)
+                strip_window =  (digi_strip_eta>0)&(digi_strip_eta<385)
                 prophits_x_corrected, prophits_y_eta, digi_strip_eta = prophits_x_corrected[strip_window], prophits_y_eta[strip_window], digi_strip_eta[strip_window]
 
                 strip_matching_ax = strip_matching_axs[0][ieta]
+                print(prophits_x_corrected, digi_strip_eta)
                 strip_matching_ax.hist2d(
-                    prophits_x_corrected, digi_strip_eta,
-                    bins=100, range=((-30,30),(250,340))
+                    np.array(prophits_x_corrected), np.array(digi_strip_eta),
+                    bins=100, range=((-30,30),(0,385))
                 )
                 strip_matching_ax.set_xlabel("Propagated x (mm)")
                 strip_matching_ax.set_ylabel("Center strip")
@@ -200,7 +204,7 @@ def main():
                     color="red"
                 )
 
-                strip_matching_ax.set_ylim(250, 340)
+                strip_matching_ax.set_ylim(0, 384)
                 strip_matching_ax.set_xlabel("Propagated x (mm)")
                 strip_matching_ax.set_ylabel("Center strip")
                 strip_matching_ax.set_title("$\eta$ = {}".format(eta))
@@ -241,7 +245,7 @@ def main():
                 residual_strip = residual_strip - prophits_x_corrected * x_opt[1]
                 
                 """ Plot and fit residual distributions """ 
-                residual_range, residual_bins = (-12,8), 80
+                residual_range, residual_bins = (-120,120), 80
                 residual_binning = (residual_range[1]-residual_range[0])/residual_bins
                 strip_residuals_ax = strip_residuals_axs[ieta]
                 strip_hist, strip_edges, _ = strip_residuals_ax.hist(
@@ -281,6 +285,7 @@ def main():
                 """ Residuals in phi coordinates """ 
                 #bmin, bmax, height, nstrips = 501.454, 659.804, 430.6, 384
                 bmin, bmax, height, nstrips = 487.5, 631.5, 389.4, 384
+                bmin, bmax, height, nstrips = 235.2, 460, 787.9, 384
                 chamber_phi = 2 * np.arctan((bmax-bmin)/(2*height)) * 1e6
                 pitch_phi = chamber_phi / nstrips
                 print("Chamber phi", chamber_phi*1e-6*180/np.pi, "°")
@@ -377,7 +382,7 @@ def main():
             return space_resolutions
 
         resolutions = [list(), list()]
-        rotation_angles = np.linspace(-80e-3, -80e-3, 1)
+        rotation_angles = np.linspace(-5e-3, 5e-3, 5)
         #rotation_angles = np.linspace(-200, 200, 20)
         for correction in rotation_angles:
             print("Applying correction", correction)
