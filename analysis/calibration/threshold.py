@@ -105,6 +105,7 @@ def main():
                 threshold_ax.set_title(f"OH {oh} VFAT {vfat}")
                 threshold_ax.set_xlabel("THR_ARM_DAC")
                 threshold_ax.set_ylabel("Rate (Hz)")
+                threshold_ax.set_yscale("log")
                
                 print(thresholds[rate<1e2])
                 optimal_threshold = thresholds[rate<1e2].min()
