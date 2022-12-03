@@ -250,6 +250,7 @@ def main():
 
         """ Choose only events within a (-50,50) mm window """
         prophit_window_mask = (abs(prophits_x)<500)&(abs(prophits_y)<500)
+        #prophit_window_mask = (prophit_window_mask)&(ak.max(rechits_cluster_size, axis=1)<=2)
         #prophit_window_mask = (abs(prophits_x)<100)&(abs(prophits_y)<100)
         #prophit_window_mask = (abs(prophits_x)<1000)&(abs(prophits_y)<1000)
         prophits_x, prophits_y = prophits_x[prophit_window_mask], prophits_y[prophit_window_mask]
@@ -269,7 +270,7 @@ def main():
         residuals_r, residuals_phi = prophits_r-rechits_r, prophits_phi-rechits_phi
         residuals_local_x, residuals_local_y = prophits_local_x-rechits_local_x, prophits_local_y-rechits_local_y
 
-        coarse_good, coarse_trigs = ak.count_nonzero(ak.count(rechits_x, axis=1)), ak.num(rechits_x, axis=0)
+        coarse_good, coarse_trigs = ak.count_nonzero(ak.count(rechits_x, axis=1)), ak.num(prophits_x, axis=0)
         coarse_efficiency = coarse_good / coarse_trigs
         print("Coarse efficiency {0:1.3f} ({1} events with hits over {2} events)".format(coarse_efficiency, coarse_good, coarse_trigs))
 
@@ -308,6 +309,14 @@ def main():
         #chi2_ax.hist(track_y_chi2, color="blue", label="$χ^2_y$", alpha=0.5, range=chi2_range, bins=chi2_bins)
         chi2_ax.hist(track_chi2, color="blue", label="Best track $χ^2$", histtype="step", linewidth=2, range=chi2_range, bins=chi2_bins)
         chi2_ax.hist(ak.flatten(track_allchi2/2), color="red", label="Discarded track $χ^2$", histtype="step", linewidth=2, range=chi2_range, bins=chi2_bins)
+        hep.cms.text("Muon Preliminary", ax=chi2_ax)
+        chi2_ax.text(
+            1., 1.,
+            "ME0 GIF++ test beam",
+            weight="bold",
+            va="bottom", ha="right", size=30,
+            transform=chi2_ax.transAxes
+        )
         chi2_ax.set_xlabel("Reduced $χ^2$")
         #chi2_ax.set_yscale("log")
         chi2_ax.legend()
@@ -336,10 +345,10 @@ def main():
         occupancy_cls_fig, occupancy_cls_ax = plt.subplots(figsize=(12,9))
         #single_hit_mask = ak.count(rechits_x, axis=1)==1
         h, x, y, img = occupancy_cls_ax.hist2d(
-            np.array(ak.flatten(rechits_x)),
+            np.array(ak.flatten(residuals_x)),
             np.array(ak.flatten(rechits_cluster_size)),
-            range=((-100, 100), (0, 10)),
-            bins=40
+            range=((-10, 10), (0, 10)),
+            bins=100
         )
         occupancy_cls_ax.set_xlabel("Rechit x")
         occupancy_cls_ax.set_ylabel("Cluster size")
@@ -483,11 +492,13 @@ def main():
             print("Space resolution for angle", args.save_angle, "saved to", angle_path)
 
         mean_residual = coeff[1]
-        residual_cut = 2.5 * abs(coeff[2]) # cut on 1 mm ~ 2 x measured residual sigma
-        mask_track_matching = abs(residuals_x - mean_residual) < residual_cut
+        residual_cut = 2.2 * abs(coeff[2]) # cut on 1 mm ~ 2 x measured residual sigma
+        mask_track_matching = abs(residuals_x - mean_residual) < abs(residual_cut)
 
         A = ak.count_nonzero(abs(residuals_eta_flat-mean_residual)<abs(residual_cut))
-        B = ak.count_nonzero(abs(residuals_eta_flat-mean_residual-20)<abs(residual_cut))
+        A1 = ak.count_nonzero(ak.count_nonzero(mask_track_matching, axis=1)>0)
+        print("Magic number:", A/A1)
+        B = ak.count_nonzero(abs(residuals_eta_flat-mean_residual-30)<abs(residual_cut))
 
         mask_track_matching = abs(residuals_eta_flat - mean_residual) < abs(residual_cut)
         has_track_matching = ak.count_nonzero(mask_track_matching)
@@ -501,6 +512,7 @@ def main():
         """ Plot efficiency vs residual cut """
         efficiency_fig, efficiency_ax = plt.figure(figsize=(12,9)), plt.axes()
         efficiency_cuts = np.arange(0.25, 5, 0.25)
+        #residuals_cls1 = residuals_x[rechits_cluster_size<2]
         efficiencies_with_error = [
             get_efficiency(residuals_x, mean_residual, coeff[2]*cut)
             for cut in efficiency_cuts
@@ -528,18 +540,26 @@ def main():
         cls_bins, cls_range = 15, (0.5,15.5)
         cluster_size_axs.hist(
             ak.flatten(cluster_size_background),
-            bins=cls_bins, range=cls_range,
+            bins=cls_bins, range=cls_range, density=True,
             histtype="step", color="red", edgecolor="red", linewidth=2,
             label="Background - average {0:1.2f} ± {1:1.2f}".format(mean_cls_bkg, err_cls_bkg)
         )
         cluster_size_axs.hist(
             ak.flatten(cluster_size_muon),
-            bins=cls_bins, range=cls_range,
+            bins=cls_bins, range=cls_range, density=True,
             histtype="step", color="blue", edgecolor="blue", linewidth=2,
             label="Muon - average {0:1.2f} ± {1:1.2f}".format(mean_cls_muon, err_cls_muon)
         )
         cluster_size_axs.set_xlabel("Cluster size")
         cluster_size_axs.set_ylabel("Events")
+        hep.cms.text("Muon Preliminary", ax=cluster_size_axs)
+        cluster_size_axs.text(
+            1., 1.,
+            "ME0 GIF++ test beam",
+            weight="bold",
+            va="bottom", ha="right", size=30,
+            transform=cluster_size_axs.transAxes
+        )
         cluster_size_axs.legend()
         
         print("Residual - mean:", abs(residuals_eta - mean_residual))
