@@ -65,15 +65,26 @@ def main():
                     min_strip, max_strip = ak.min(strips_eta, axis=None), ak.max(strips_eta, axis=None)
                     strip_bins = max_strip - min_strip + 1
                     strip_range = (min_strip-0.5, max_strip+0.5)
-                    rate_axs[ieta][ichamber].hist(
-                        ak.flatten(strips_eta),
-                        weights=np.ones(len(ak.flatten(strips_eta)))/daq_time/1e3,
+                    occupancy_rates, occupancy_edges = np.histogram(
+                        np.array(ak.flatten(strips_eta)),
+                        #weights=np.ones(len(ak.flatten(strips_eta)))/daq_time/1e3,
                         bins=strip_bins, range=strip_range,
-                        histtype="step", color="blue", linewidth=2
                     )
-                    rate_axs[ieta][ichamber].set_xlabel("Strip")
-                    rate_axs[ieta][ichamber].set_ylabel("Rate (kHz)")
-                    rate_axs[ieta][ichamber].set_title("Detector {} eta {}".format(chamber, eta))
+                    occupancy_bins = 0.5*(occupancy_edges[1:]+occupancy_edges[:-1])
+                    occupancy_errors = np.sqrt(occupancy_rates)
+                    occupancy_rates = occupancy_rates.astype(float) / (daq_time*1e3)
+                    occupancy_errors /= daq_time*1e3
+                    if len(chambers_unique) == 1: ax = rate_axs[ieta]
+                    else: ax = rate_axs[ieta][ichamber]
+                    ax.bar(
+                        occupancy_bins, occupancy_rates, yerr=occupancy_errors,
+                        #histtype="step", 
+                        color="blue", linewidth=2
+                    )
+
+                    ax.set_xlabel("Strip")
+                    ax.set_ylabel("Rate (kHz)")
+                    ax.set_title("Detector {} eta {}".format(chamber, eta))
 
                     for strip in strips_unique:
                         strip_occurrency = ak.count_nonzero(ak.flatten(strips_eta==strip))
@@ -90,7 +101,7 @@ def main():
             rate_fig.savefig(args.odir / "rate.png")
             rate_fig.savefig(args.odir / "rate.pdf")
 
-            rate_avg_df = rate_df.groupby(["chamber", "eta"]).apply(np.mean)
+            rate_avg_df = rate_df[rate_df.eta<3].groupby(["chamber", "eta"]).apply(np.mean)
             print("Average rates:")
             print(rate_avg_df)
             rate_avg_df.to_csv(args.odir / "rate_average.csv", index=None)
@@ -116,7 +127,7 @@ def main():
             run_df = pd.read_csv(run_csv)
             run_df["source_abs"] = source_abs
             rate_dataframes.append(run_df)
-        rate_df = pd.concat(rate_dataframes)[["source_abs", "chamber", "eta", "rate"]]
+        rate_df = pd.concat(rate_dataframes)[["source_abs", "chamber", "eta", "rate", "rate_error"]]
 
         rates_average_df = rate_df.groupby(["chamber", "source_abs"]).apply(np.mean)
 
@@ -126,12 +137,12 @@ def main():
             ax = rate_axs[ichamber]
             chamber_rate_df = rates_average_df[rates_average_df.chamber==chamber]
             ax.plot(
-                chamber_rate_df.source_abs, chamber_rate_df.rate,
+                1/chamber_rate_df.source_abs, chamber_rate_df.rate/1e3,
                 "o", color="black", label=f"Detector {chamber:1.0f}"
             )
             ax.legend()
-            ax.set_xlabel("Source absorption factor")
-            ax.set_ylabel("Average rate (kHz/strip)")
+            ax.set_xlabel("Inverse source absorption factor")
+            ax.set_ylabel("Average measured rate (kHz/strip)")
             hep.cms.text("Muon Preliminary", ax=ax)
             ax.set_xscale("log")
             ax.set_yscale("log")
