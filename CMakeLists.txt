@@ -11,6 +11,7 @@ include_directories($ENV{ANALYSIS_HOME}/include)
 
 set(sources
     $ENV{ANALYSIS_HOME}/src/StripMapping.cc
+    $ENV{ANALYSIS_HOME}/src/PadMapping.cc
     $ENV{ANALYSIS_HOME}/src/ChamberMapping.cc
     $ENV{ANALYSIS_HOME}/src/SetupGeometry.cc
     $ENV{ANALYSIS_HOME}/src/DataFrame.cc
@@ -55,6 +56,9 @@ target_link_libraries(Tracking ${ROOT_LIBRARIES})
 add_executable(Alignment Alignment.cc ${sources} ${headers})
 target_link_libraries(Alignment ${ROOT_LIBRARIES})
 
+add_executable(ApvToDigi apv_converter.cc ${sources} ${headers})
+target_link_libraries(ApvToDigi ${ROOT_LIBRARIES})
+
 #----------------------------------------------------------------------------
 # Copy script and analysis files
 #
@@ -79,6 +83,8 @@ configure_file(mapping/july2022/tracker_mapping.csv mapping/july2022/tracker_map
 configure_file(mapping/july2022/me0_mapping.csv mapping/july2022/me0_mapping.csv COPYONLY)
 configure_file(mapping/july2022/chamber_mapping.csv mapping/july2022/chamber_mapping.csv COPYONLY)
 configure_file(mapping/july2022/template.csv mapping/july2022/template.csv COPYONLY)
+
+configure_file(mapping/mpgd_hcal/pad_mapping.csv mapping/mpgd_hcal/pad_mapping.csv COPYONLY)
 
 configure_file(mapping/generate.py mapping/generate.py COPYONLY)
 configure_file(mapping/vfat.csv mapping/vfat.csv COPYONLY)
@@ -115,3 +121,4 @@ configure_file(analysis/utils/plot_alignment.py analysis/utils/plot_alignment.py
 install(TARGETS RawToDigi DESTINATION bin)
 install(TARGETS DigiToRechits DESTINATION bin)
 install(TARGETS Tracking DESTINATION bin)
+install(TARGETS ApvToDigi DESTINATION bin)

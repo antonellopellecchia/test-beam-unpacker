@@ -10,13 +10,13 @@
 #include <TFile.h>
 #include <TTree.h>
 
-#include "StripMapping.h"
+#include "PadMapping.h"
 #include "ChamberMapping.h"
 #include "GEMAMCEventFormat.h"
 
-class GEMUnpacker {
+class APVUnpacker {
   public:
-    GEMUnpacker(const std::vector<std::string> ifilenames, const std::string isFedKit, const std::string _ofilename, const int _every) {
+    APVUnpacker(const std::vector<std::string> ifilenames, const std::string isFedKit, const std::string _ofilename, const int _every) {
       try {
         for (auto ifilename:ifilenames)
           m_files.push_back(std::fopen(ifilename.c_str(), "rb"));
@@ -28,7 +28,7 @@ class GEMUnpacker {
       every = _every;
     }
 
-    ~GEMUnpacker() {
+    ~APVUnpacker() {
       for (auto file:m_files)
         if (file != NULL) std::fclose(file);
     }
@@ -174,11 +174,11 @@ class GEMUnpacker {
                 continue;
             }
 
+            /*
             chamber = chamberMapping->to_chamber[slot][oh][vfatId];
             if (stripMappings.count(chamber)==0) continue;
-            StripMapping *stripMapping = stripMappings.at(chamber);
+            PadMapping *stripMapping = stripMappings.at(chamber);
             eta = stripMapping->to_eta[vfatId];
-
 
             if (verbose) {
               std::cout << "        " << slot << "\t" << oh << "\t" << std::setw(3) << vfatId;
@@ -215,6 +215,7 @@ class GEMUnpacker {
                 nhits++;
               }
             }
+            */
             delete m_vfatdata;
           }
           std::fread(&m_word, sizeof(uint64_t), 1, m_files.at(slot));
@@ -233,7 +234,7 @@ class GEMUnpacker {
       return 0;
     }    
 
-    int unpack(const int max_events, std::map<int, StripMapping*> _stripMappings, ChamberMapping* _chamberMapping) {
+    int unpack(const int max_events, std::map<int, PadMapping*> _stripMappings, ChamberMapping* _chamberMapping) {
       stripMappings = _stripMappings;
       chamberMapping = _chamberMapping;
 
@@ -351,38 +352,29 @@ private:
     std::string m_isFedKit;
     int every; // events to skip
 
-    std::map<int, StripMapping*> stripMappings;
+    std::map<int, PadMapping*> stripMappings;
     ChamberMapping *chamberMapping;
     bool verbose=false, checkSyncronization=false;
 };
  
 int main (int argc, char** argv) {
-  std::cout << "Running GEM unpacker..." << std::endl;
-  if (argc<3) 
-  {
-    std::cout << "Usage: RawToDigi ifile(s) ofile [--events max_events] [--geometry geometryname] [--format ferol/sdram] [--verbose] [--check-sync] --every [events]" << std::endl;
+  if (argc<3) {
+    std::cout << "Usage: ApvToDigi ifile(s) ofile [--events max_events] [--verbose]" << std::endl;
     return 0;
   }
   std::vector<std::string> ifiles;
   std::string ofile;
-  std::string isFedKit = "ferol";
-  
+  std::string geometry = "mpgd_hcal";
+
   int max_events = -1;
-  int every = 0;
-  std::string geometry = "oct2021";
   bool verbose = false;
-  bool checkSyncronization = false;
   bool isUnnamed = true;
   for (int iarg=1; iarg<argc; iarg++) {
     std::string arg = argv[iarg];
     if (arg[0]=='-') { // parse named parameters
       isUnnamed = false; // end of unnamed parameters
       if (arg=="--verbose") verbose = true;
-      else if (arg=="--check-sync") checkSyncronization = true;
       else if (arg=="--events") max_events = atoi(argv[iarg+1]);
-      else if (arg=="--geometry") geometry = argv[iarg+1];
-      else if (arg=="--every") every = atoi(argv[iarg+1]);
-      std::cout << "every " << every << std::endl;
     } else if (isUnnamed) { // unnamed parameters
       if (iarg+1==argc || argv[iarg+1][0]=='-') ofile = arg;
       else ifiles.push_back(arg);
@@ -395,53 +387,32 @@ int main (int argc, char** argv) {
 
   std::cout << "Reading mapping files..." << std::endl;
   std::string mappingBaseDir = "mapping/"+geometry;
-  std::map<int, StripMapping*> stripMappings;
-  ChamberMapping chamberMapping(mappingBaseDir+"/chamber_mapping.csv");
+  std::map<int, PadMapping*> stripMappings;
 
-  if (geometry=="oct2021" || geometry=="may2022") {
-      StripMapping trackerStripMapping(mappingBaseDir+"/tracker_mapping.csv");
-      StripMapping ge21StripMapping(mappingBaseDir+"/ge21_mapping.csv");
-      StripMapping me0StripMapping(mappingBaseDir+"/me0_mapping.csv");
-      std::cout << "Mapping files ok." << std::endl;
+  if (geometry=="mpgd_hcal") {
+    // Only one chamber for now:
+    PadMapping chamberStripMapping(mappingBaseDir+"/pad_mapping.csv");
+    std::cout << "Mapping files ok." << std::endl;
 
-      stripMappings = {
-        {0, &trackerStripMapping},
-        {1, &trackerStripMapping},
-        {2, &trackerStripMapping},
-        {3, &trackerStripMapping},
-        {4, &ge21StripMapping},
-        {5, &me0StripMapping},
-        {6, &me0StripMapping},
-      };
-  } else if (geometry=="july2022") {
-      StripMapping trackerStripMapping(mappingBaseDir+"/tracker_mapping.csv");
-      StripMapping me0StripMapping(mappingBaseDir+"/me0_mapping.csv");
-      std::cout << "Mapping files ok." << std::endl;
-
-      stripMappings = {
-        {0, &trackerStripMapping},
-        {1, &trackerStripMapping},
-        {2, &trackerStripMapping},
-        {3, &me0StripMapping},
-      };
+    stripMappings = {
+      {0, &chamberStripMapping},
+    };
   } else {
-      std::cout << "Error: geometry " << geometry << " not supported yet." << std::endl;
-      return -1;
+    std::cout << "Error: geometry " << geometry << " not supported yet." << std::endl;
+    return -1;
   }
 
   if (verbose) {
-      chamberMapping.print();
-      /*for (auto stripMapping:stripMappings) {
-          std::cout << "Chamber " << stripMapping.first << std::endl;
-          stripMapping.second->print();
-      }*/
+    stripMappings[0]->print();
   }
+  return 0;
 
-  GEMUnpacker * m_unpacker = new GEMUnpacker(ifiles, isFedKit, ofile, every);
+  /*
+  APVUnpacker * m_unpacker = new APVUnpacker(ifiles, false, ofile);
   m_unpacker->setParameters(verbose, checkSyncronization);
   int unpackerStatus = m_unpacker->unpack(max_events, stripMappings, &chamberMapping);
   delete m_unpacker;
   std::cout << "Output file saved to " << ofile << std::endl;
-
   return unpackerStatus;
+  */
 }

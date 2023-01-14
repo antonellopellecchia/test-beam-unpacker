@@ -3,3 +3,5 @@ results/*
 scans/*
 jobs/*
 .vscode/*
+.DS_STORE
+.ipynb_checkpoints/*
