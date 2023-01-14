@@ -18,7 +18,6 @@ PadMapping::PadMapping(std::string mappingFilePath) {
 	for (int irow=0; irow<mappingDataFrame.getNRows(); irow++) {
 		// unused: oh = std::stoi(mappingRow[columnIndex["oh"]]);
 		// unused: chamber = std::stoi(mappingRow[columnIndex["chamber"]]);
-		mappingDataFrame.print();
 		chipId = std::stoi(mappingDataFrame.getElement("chip", irow));
 		chipChannel = std::stoi(mappingDataFrame.getElement("channel", irow));
 		pad_x = std::stoi(mappingDataFrame.getElement("pad_x", irow));
@@ -32,8 +31,9 @@ void PadMapping::print() {
 	std::cout << "Pad mapping" << std::endl;
   std::cout << "chip\tchannel\tpad x\tpad y" << std::endl;
 	for (int i=0; i<3; i++) {
-		for (int j=0; j<128; j++)
-            std::cout << i << "\t" << j << "\t" << to_pad_x[i][j] << to_pad_y[i][j] << std::endl;
+		for (int j=0; j<10; j++)
+      std::cout << i << "\t" << j << "\t" << to_pad_x[i][j] << "\t" << to_pad_y[i][j] << std::endl;
+		std::cout << "..." << std::endl;
 	}
 	std::cout << std::endl;
 }

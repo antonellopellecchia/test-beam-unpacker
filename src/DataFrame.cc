@@ -33,14 +33,14 @@ DataFrame DataFrame::fromCsv(std::string path) {
 		std::stringstream lineStream(csvLine);
 
 		// split line by separator
-        size_t pos = 0;
-        std::string delimiter = ",";
-        while ((pos = csvLine.find(delimiter)) != std::string::npos) {
-            token = csvLine.substr(0, pos);
-            csvLine.erase(0, pos + delimiter.length());
-            mappingRow.push_back(token);
-        }
-        mappingRow.push_back(csvLine);
+    size_t pos = 0;
+    std::string delimiter = ",";
+    while ((pos = csvLine.find(delimiter)) != std::string::npos) {
+        token = csvLine.substr(0, pos);
+        csvLine.erase(0, pos + delimiter.length());
+        mappingRow.push_back(token);
+    }
+    mappingRow.push_back(csvLine);
 
 		if (lineIndex==0) { // parse header
 			colNames = mappingRow;
@@ -51,31 +51,23 @@ DataFrame DataFrame::fromCsv(std::string path) {
 				// T value;
 				// convertToT >> value;
 				// fElements[colNames[icol]].push_back(value);
-				std::cout << colNames[icol] << std::endl;
 				elements[colNames[icol]].push_back(mappingRow[icol]);
 			}
 		}
 	}
 	csvFile.close();
-	for (auto el: colNames) std::cout << el << " aaaa" << std::endl;
-	for (auto el: elements) std::cout << el.first << " bbbb" << std::endl;
 	return DataFrame(colNames, elements);
 }
 
 std::string DataFrame::getElement(std::string column, int row) {
-	for (auto el:fElements) {
-		std::cout << el.first << " " << ", " << el.second[0] << std::endl;
-	}
-	std::cout << std::endl;
-    if (fElements.count(column)>0) {
-        return fElements[column][row];
-    } else {
-        throw std::out_of_range(std::string("Column '" + column + "' does not exist in dataframe"));
-    }
+  if (fElements.count(column)>0) {
+      return fElements[column][row];
+  } else {
+      throw std::out_of_range(std::string("Column '" + column + "' does not exist in dataframe"));
+  }
 }
 
 void DataFrame::print() {
-	for (auto colName:fColumnNames) std::cout << colName << std::endl;
 	for (auto colName:fColumnNames) std::cout << std::setw(10) << colName << "\t";
 	std::cout << std::endl;
 
