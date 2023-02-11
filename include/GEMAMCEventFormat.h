@@ -431,6 +431,7 @@ class AMCEvent
       m_ChamT = 0x00ffffff & (word >> 40);  /*!Chamber Timeout*/
       m_OOSG = 0b00000001 & (word >> 39);   /*!OOS GLIB*/
       m_RunParameter = 0x03ff & (word >> 8); 
+      m_PULSE_STRETCH = (int) (0x07 & (word >> 18));
     }
 
     //!Reads the word for the AMC Trailer
