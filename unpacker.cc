@@ -409,7 +409,7 @@ int main (int argc, char** argv) {
   std::cout << std::endl;
   std::cout << "ofile " << ofile << std::endl;
 
-  std::cout << "Reading mapping files..." << std::endl;
+  std::cout << "Reading mapping files for geometry " << geometry << "..." << std::endl;
   std::string mappingBaseDir = "mapping/"+geometry;
   std::map<int, StripMapping*> stripMappings;
   ChamberMapping chamberMapping(mappingBaseDir+"/chamber_mapping.csv");
@@ -439,6 +439,15 @@ int main (int argc, char** argv) {
         {1, &trackerStripMapping},
         {2, &trackerStripMapping},
         {3, &me0StripMapping},
+      };
+  } else if (geometry=="me0stack") {
+      StripMapping me0StripMapping(mappingBaseDir+"/me0_mapping.csv");
+      std::cout << "Mapping files ok." << std::endl;
+
+      stripMappings = {
+        {0, &me0StripMapping},
+        {1, &me0StripMapping},
+        {2, &me0StripMapping},
       };
   } else {
       std::cout << "Error: geometry " << geometry << " not supported yet." << std::endl;

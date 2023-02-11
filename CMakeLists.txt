@@ -80,11 +80,15 @@ configure_file(mapping/july2022/me0_mapping.csv mapping/july2022/me0_mapping.csv
 configure_file(mapping/july2022/chamber_mapping.csv mapping/july2022/chamber_mapping.csv COPYONLY)
 configure_file(mapping/july2022/template.csv mapping/july2022/template.csv COPYONLY)
 
+configure_file(mapping/me0stack/me0_mapping.csv mapping/me0stack/me0_mapping.csv COPYONLY)
+configure_file(mapping/me0stack/chamber_mapping.csv mapping/me0stack/chamber_mapping.csv COPYONLY)
+
 configure_file(mapping/generate.py mapping/generate.py COPYONLY)
 configure_file(mapping/vfat.csv mapping/vfat.csv COPYONLY)
 
 configure_file(geometry/may2022.csv geometry/may2022.csv COPYONLY)
 configure_file(geometry/july2022.csv geometry/july2022.csv COPYONLY)
+configure_file(geometry/me0stack.csv geometry/me0stack.csv COPYONLY)
 
 configure_file(analysis/residuals.py analysis/residuals.py COPYONLY)
 configure_file(analysis/occupancy.py analysis/occupancy.py COPYONLY)
