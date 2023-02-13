@@ -195,7 +195,7 @@ class GEMUnpacker {
             direction = eta%2;
             for (int i=0;i<64;i++) {
               if (m_vfatdata->lsData() & (1LL << i)) {
-                  if (!maskDataFrame.isEmpty && !maskDataFrame.contains(std::vector<std::string>{
+                  if (maskDataFrame.isEmpty || !maskDataFrame.contains(std::vector<std::string>{
                       std::to_string(slot), std::to_string(oh), std::to_string(vfatId), std::to_string(i)
                   })) {
                     vecCh.push_back(i);
@@ -212,7 +212,7 @@ class GEMUnpacker {
                   }
               }
               if (m_vfatdata->msData() & (1LL << i)) {
-               if (!maskDataFrame.isEmpty && !maskDataFrame.contains(std::vector<std::string>{
+               if (maskDataFrame.isEmpty || !maskDataFrame.contains(std::vector<std::string>{
                           std::to_string(slot), std::to_string(oh), std::to_string(vfatId), std::to_string(i+64)
                   })) {
                     vecCh.push_back(i+64);
