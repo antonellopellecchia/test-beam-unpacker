@@ -459,18 +459,9 @@ int main (int argc, char** argv) {
   std::string maskCsvPath("masks/"+geometry+".csv");
   std::ifstream maskFile(maskCsvPath);
   if (maskFile.good()) {
-        std::cout << "Using masking file " << maskCsvPath << std::endl;
-        maskDataFrame = DataFrame::fromCsv(maskCsvPath, ";");
-        //maskDataFrame.print();
-   }
-
-
-  if (verbose) {
-      //chamberMapping.print();
-      /*for (auto stripMapping:stripMappings) {
-          std::cout << "Chamber " << stripMapping.first << std::endl;
-          stripMapping.second->print();
-      }*/
+    std::cout << "Using masking file " << maskCsvPath << std::endl;
+    maskDataFrame = DataFrame::fromCsv(maskCsvPath, ";");
+    //maskDataFrame.print();
   }
 
   GEMUnpacker * m_unpacker = new GEMUnpacker(ifiles, isFedKit, ofile, every, maskDataFrame);

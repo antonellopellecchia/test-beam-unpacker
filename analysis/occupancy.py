@@ -21,7 +21,7 @@ def main():
     parser.add_argument("-n", "--events", type=int, default=-1, help="Number of events to analyse")
     parser.add_argument("--start", type=int, default=0, help="First event")
     parser.add_argument("--raw", action="store_true", help="Plot VFAT channel datas")
-    parser.add_argument("--find-noisy", type=pathlib.Path, help="Find noisy strips and save them to file")
+    parser.add_argument("--find-noisy", action="store_true", help="Find noisy strips and save them to file")
     parser.add_argument("--mask-noisy", type=pathlib.Path, help="Mask noisy strips found in file")
     parser.add_argument("--efficiency", type=pathlib.Path, nargs="+", help="Save fast efficiency to file")
     parser.add_argument("--latency-cut", type=int, help="Plot separately for different latencies")
@@ -58,7 +58,7 @@ def main():
         print(n_events, "events in run")
 
         if args.find_noisy: # save to csv strips with occupancy > 4000, to be improved
-            os.makedirs(os.path.dirname(args.find_noisy), exist_ok=True)
+            #os.makedirs(os.path.dirname(args.find_noisy), exist_ok=True)
             noisy_channels = list()
 
         if args.mask_noisy:
@@ -85,9 +85,17 @@ def main():
                 slot_filter = digi_slot==slot
                 
                 for oh in np.unique(ak.flatten(digi_oh)):
-                    
-                    occupancy_fig, occupancy_axs = plt.subplots(nrows=6, ncols=4, figsize=(12*4,10*6))
+                   
+                    n_vfats = len(np.unique(ak.flatten(digi_vfat)))
+                    ncols = round(n_vfats**0.5)
+                    nrows = round(n_vfats/ncols)
+
+                    occupancy_fig, occupancy_axs = plt.subplots(nrows=nrows, ncols=ncols, figsize=(12*ncols,10*nrows))
                     occupancy_axs = occupancy_axs.flatten()
+
+                    if args.find_noisy:
+                        noisy_fig, noisy_axs = plt.subplots(nrows=nrows, ncols=ncols, figsize=(12*ncols,10*nrows))
+                        noisy_axs = noisy_axs.flat
 
                     oh_filter = slot_filter&(digi_oh==oh)
 
@@ -97,7 +105,7 @@ def main():
                         good_events = ak.count_nonzero(channels_per_event)
                         event_count_oh.append( (slot, oh, good_events) )
 
-                    for vfat in np.unique(ak.flatten(digi_vfat)):
+                    for ivfat,vfat in enumerate(np.unique(ak.flatten(digi_vfat))):
 
                         vfat_filter = oh_filter&(digi_vfat==vfat)
                         #channel = digi_channel[vfat_filter]
@@ -114,28 +122,53 @@ def main():
                         
                         if ak.count(filtered_channel) == 0: continue # no hits for selected oh, vfat
                       
+                        occupancy_bins = ak.max(digi_channel)+1
+                        occupancy_range = -0.5, occupancy_bins-0.5
                         if not args.latency_cut:
-                            channel_hist, channel_bins, _ = occupancy_axs[vfat].hist(filtered_channel, bins=140, range=(-0.5,139.5))
+                            channel_occupancy, channel_bins, _ = occupancy_axs[ivfat].hist(filtered_channel, bins=occupancy_bins, range=occupancy_range)
                         else:
-                            nbins = 128*2
-                            binrange = (0.5,256.5)
                             filtered_latency = ak.flatten(digi_latency[vfat_filter])
-                            channel_hist, channel_bins, _ = occupancy_axs[vfat].hist(
+                            channel_occupancy, channel_bins, _ = occupancy_axs[ivfat].hist(
                                     filtered_channel[filtered_latency<args.latency_cut],
-                                    bins=nbins, range=binrange, label=f"latency < {args.latency_cut}", alpha=0.4
+                                    bins=occupancy_bins, range=occupancy_range, label=f"latency < {args.latency_cut}", alpha=0.4
                             )
-                            occupancy_axs[vfat].hist(
+                            occupancy_axs[ivfat].hist(
                                     filtered_channel[filtered_latency>=args.latency_cut],
-                                    bins=nbins, range=binrange, label=f"latency > {args.latency_cut}", alpha=0.4
+                                    bins=occupancy_bins, range=occupancy_range, label=f"latency > {args.latency_cut}", alpha=0.4
                             )
-                            occupancy_axs[vfat].legend()
+                            occupancy_axs[ivfat].legend()
                         
-                        occupancy_axs[vfat].set_title("OH {}, VFAT {}".format(oh, vfat)) 
-                        occupancy_axs[vfat].set_xlabel("Channel")
+                        occupancy_axs[ivfat].set_title("OH {}, VFAT {}".format(oh, vfat)) 
+                        occupancy_axs[ivfat].set_xlabel("Channel")
                         
                         if args.find_noisy:
+                            occupancy_mean, occupancy_sigma = channel_occupancy.mean(), channel_occupancy.std()
+                            channel_list = 0.5*(channel_bins[1:]+channel_bins[:-1])
+                            noisy_channels_vfat = channel_list[channel_occupancy>1.5*occupancy_sigma].astype(int)
+                            print(f"Noisy channels for slot {slot}, oh {oh}, vfat {vfat}:", noisy_channels_vfat)
+
+                            """ Save mask config to VFAT config file: """
+                            mask_dir = args.odir / f"slot{slot}"
+                            os.makedirs(mask_dir, exist_ok=True)
+                            with open(mask_dir / f"config-oh{oh}-vfat{vfat}.cfg", "w") as mask_file:
+                                mask_file.write("\n")
+                                for noisy_channel in noisy_channels_vfat:
+                                    mask_file.write(f"VFAT_CHANNELS.CHANNEL{noisy_channel}.MASK 1\n")
+
+                            noisy_axs[ivfat].hist(channel_occupancy, bins=100) # plot occupancy distribution
+                            noisy_axs[ivfat].text(
+                                0.9, 0.9,
+                                f"µ {occupancy_mean:1.2f}\n\
+                                $\sigma$ {occupancy_sigma:1.2f}",
+                                transform=noisy_axs[ivfat].transAxes,
+                                ha="right", va="top"
+                            )
+                            noisy_axs[ivfat].set_xlabel("Occupancy")
+                            noisy_axs[ivfat].set_ylabel("Occurrence")
+                            noisy_axs[ivfat].set_title(f"VFAT {vfat}")
+
                             channels = (0.5*(channel_bins[1:]+channel_bins[:-1])).astype(int)
-                            noisy_channels_vfat = channels[channel_hist>50000]
+                            noisy_channels_vfat = channels[channel_occupancy>4500]
                             if args.verbose: print("Noisy channels vfat", vfat, ":", noisy_channels_vfat)
                             for channel in noisy_channels_vfat:
                                 noisy_channels.append( (slot, oh, vfat, channel) )
@@ -143,9 +176,13 @@ def main():
                     occupancy_fig.tight_layout()
                     occupancy_fig.savefig(args.odir / f"occupancy_slot{slot}_oh{oh}.png")
 
+                    if args.find_noisy:
+                        noisy_fig.tight_layout()
+                        noisy_fig.savefig(args.odir / f"dist_slot{slot}_oh{oh}.png")
+
         if args.find_noisy:
             noisy_df = pd.DataFrame(noisy_channels, columns=["slot", "oh", "vfat", "channel"])
-            noisy_df.to_csv(args.find_noisy, sep=";", index=False)
+            noisy_df.to_csv(args.odir/"noisy.csv", sep=";", index=False)
 
         if args.efficiency:
             efficiency_df = pd.DataFrame(event_count_oh, columns=["slot", "oh", "fired"])
@@ -224,7 +261,9 @@ def main():
                     n_events = args.by_event
                     event_ax = event_axs[ieta]
 
-                    forplot_strips = digi_strip[(chamber_filter)&(eta_filter)][:n_events]
+                    forplot_strips = digi_strip[(chamber_filter)&(eta_filter)]
+                    multiplicity_filter = ak.num(forplot_strips, axis=1)>=1 # change this for higher strip multiplicities
+                    forplot_strips = forplot_strips[multiplicity_filter][:n_events]
                     n_strips = ak.max(forplot_strips)
                     strip_range = np.arange(n_strips)
                     event_range = np.arange(len(forplot_strips))
@@ -233,6 +272,10 @@ def main():
                         print(f"{n_events} events, {n_strips} strips")
                         print("Broadcasted index:", ak.flatten(event_broad))
                         print("Strips:", ak.flatten(forplot_strips))
+
+                        print("Printing strips by event:")
+                        for evt_strips in forplot_strips: print(evt_strips)
+
                     event_ax.hist2d(
                         ak.flatten(forplot_strips, axis=None).to_numpy(),
                         ak.flatten(event_broad, axis=None).to_numpy(),

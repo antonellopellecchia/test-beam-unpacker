@@ -31,6 +31,32 @@ def gauss2(x, *p):
     A2*scipy.stats.norm.pdf(x, loc=mu2, scale=sigma2)
     #return gauss(x, A1, mu1, sigma1) + gauss(x, A2, mu2, sigma2)
 
+def get_efficiency(residuals, mean_residual, cut):
+
+    residuals_flat = ak.flatten(residuals)
+    A = ak.count_nonzero(abs(residuals_flat-mean_residual)<abs(cut))
+    B = ak.count_nonzero(abs(residuals_flat-mean_residual-20)<abs(cut))
+
+    mask_track_matching = abs(residuals_flat - mean_residual) < abs(cut)
+    has_track_matching = ak.count_nonzero(mask_track_matching)
+    n_triggers = ak.num(residuals, axis=0)
+
+    stat_efficiency = (A-B)/n_triggers
+    try: 
+        err_stat_efficiency = stat_efficiency * (1/(A-B) + 1/n_triggers)**0.5
+    except ZeroDivisionError:
+        err_stat_efficiency = -1
+
+    return stat_efficiency, err_stat_efficiency
+
+    mask_track_matching = abs(residuals - mean_residual) < abs(cut)
+    has_track_matching = ak.count_nonzero(mask_track_matching, axis=1)
+    n_good_events = ak.count_nonzero(has_track_matching)
+    n_triggers = ak.count(has_track_matching)
+    efficiency = n_good_events / n_triggers
+    err_efficiency = efficiency * (1/n_good_events + 1/n_triggers)**0.5
+    return efficiency, err_efficiency
+
 def analyse_residuals(residuals, hist_range, nbins, ax, legend, xlabel):
     points, bins = np.histogram(residuals, bins=nbins, range=hist_range)
     bins = bins[:-1]+ 0.5*(bins[1:] - bins[:-1])
@@ -38,6 +64,7 @@ def analyse_residuals(residuals, hist_range, nbins, ax, legend, xlabel):
     # gaussian fit
     coeff = [len(residuals), residuals.mean(), residuals.std()]
     coeff += [len(residuals)*0.1, residuals.mean(), 10*residuals.std()]
+    coeff[2] = 10e3
     try:
         coeff, var_matrix = curve_fit(gauss2, bins, points, p0=coeff, method="lm")
     except RuntimeError:
@@ -94,57 +121,71 @@ def analyze_rotation(prophits, rechits, eta, odir):
     prophits_x_multiple = ak.to_numpy(prophits_x_multiple[~ak.is_none(prophits_x_multiple)])
     prophits_y_multiple = ak.to_numpy(prophits_y_multiple[~ak.is_none(prophits_y_multiple)])
     
-    rotation_bins=(80,80)
-    rotation_range=((-46,46),(-46,46))
+    rotation_bins=(50,50)
+    rotation_range=((-40,40),(10,30))
+    rotation_middle = 0.5*(rotation_range[1][0]+rotation_range[1][1])
+    prophits_mask = abs(prophits_y_multiple-rotation_middle) < 4
 
     """ Plot propagated positions only for multiple eta fired """
-    rotation_fig, rotation_axs = plt.subplots(nrows=1, ncols=3, figsize=(39,9)) 
-    rotation_axs[0].hist2d(
+    rotation_fig_2d, rotation_ax_2d = plt.subplots(figsize=(14,9)) 
+    rotation_fig_1d, rotation_ax_1d = plt.subplots(figsize=(12,9)) 
+    h, x, y, rotation_img = rotation_ax_2d.hist2d(
         prophits_x_multiple, prophits_y_multiple,
-        bins=rotation_bins, range=rotation_range # cut away pillar
+        bins=rotation_bins, range=rotation_range, 
+        cmap="Purples"
     )
-    rotation_axs[0].set_xlabel("Propagated local x (mm)")
-    rotation_axs[0].set_ylabel("Propagated local y (mm)")
+    rotation_fig_2d.colorbar(rotation_img, ax=rotation_ax_2d, label="Entries")
+    rotation_ax_2d.set_xlabel("Propagated x (mm)")
+    rotation_ax_2d.set_ylabel("Propagated y (mm)")
 
-    rotation_axs[2].hist(
-        prophits_y_multiple, bins=80,
-        range=rotation_range[1],
-        histtype="stepfilled", facecolor="none", edgecolor="black", linewidth=2
-    )
-    rotation_axs[2].set_xlabel("Propagated local y (mm)")
-
-    prophits_mask = (prophits_y_multiple>rotation_range[1][0])&(prophits_y_multiple<rotation_range[1][1])
+    #prophits_mask = (prophits_y_multiple>-4)&(prophits_y_multiple<2)
+    #prophits_mask = (prophits_y_multiple < rotation_range[1][0])&(prophits_y_multiple < rotation_range[1][1])
 
     """ Plot with statistics """
-    y_means, x_edges, _ = scipy.stats.binned_statistic(prophits_x_multiple[prophits_mask], prophits_y_multiple[prophits_mask], "mean", bins=20, range=rotation_range[0])
-    y_std, x_edges, _ = scipy.stats.binned_statistic(prophits_x_multiple[prophits_mask], prophits_y_multiple[prophits_mask], "std", bins=20, range=rotation_range[0])
-    y_count, x_edges, _ = scipy.stats.binned_statistic(prophits_x_multiple[prophits_mask], prophits_y_multiple[prophits_mask], "count", bins=20, range=rotation_range[0])
+    y_means, x_edges, _ = scipy.stats.binned_statistic(prophits_x_multiple[prophits_mask], prophits_y_multiple[prophits_mask], "mean", bins=10, range=rotation_range[0])
+    y_std, x_edges, _ = scipy.stats.binned_statistic(prophits_x_multiple[prophits_mask], prophits_y_multiple[prophits_mask], "std", bins=10, range=rotation_range[0])
+    y_count, x_edges, _ = scipy.stats.binned_statistic(prophits_x_multiple[prophits_mask], prophits_y_multiple[prophits_mask], "count", bins=10, range=rotation_range[0])
     x_bins = 0.5 * (x_edges[1:] + x_edges[:-1])
 
     """ Fit to extract rotation """
-    rotation_opt, rotation_cov = curve_fit(linear_function, x_bins, y_means, sigma=y_std/np.sqrt(y_count), p0=[0., -0.1])
+    #rotation_opt, rotation_cov = curve_fit(linear_function, x_bins, y_means, sigma=y_std/np.sqrt(y_count), p0=[0., -0.1])
+    rotation_opt, rotation_cov = curve_fit(linear_function, prophits_x_multiple[prophits_mask], prophits_y_multiple[prophits_mask], p0=[0., -0.1])
     correction_y, rotation_slope = rotation_opt
     err_y, err_m = np.sqrt(np.diag(rotation_cov))
     rotation_angle = np.arctan(rotation_slope)*1e3
     rotation_angle_err = err_m/(1+rotation_angle**2)*1e3
-    correction_y = 689.4123 - correction_y
+    #correction_y = 689.4123 - correction_y
     
     print(f"Rotation: {rotation_angle:1.2f} ± {rotation_angle_err:1.2f} mrad")
     print(f"y correction: {correction_y:1.2f} ± {err_y:1.2f} mm")
     
-    rotation_axs[1].errorbar(x_bins, y_means, yerr=y_std/np.sqrt(y_count), fmt=".k")
-    rotation_axs[1].plot(
+    #rotation_ax_1d.errorbar(x_bins, y_means, yerr=y_std/np.sqrt(y_count), fmt=".k")
+    #rotation_ax_1d.scatter(prophits_x_multiple[prophits_mask], prophits_y_multiple[prophits_mask]) 
+    rotation_ax_2d.plot(
             x_bins, linear_function(x_bins, *rotation_opt),
-            label=f"$\\theta = {rotation_angle:1.2f} \pm {rotation_angle_err:1.2f}$ mrad",
-            color="red"
+            label="fit", color="red"
+            #label=f"$\\theta = {rotation_angle:1.2f} \pm {rotation_angle_err:1.2f}$ mrad",
     )
-    rotation_axs[1].legend()
-    #rotation_axs[1].set_ylim(-3, 2)
-    hep.cms.text(text="Preliminary", ax=rotation_axs[1])
-    rotation_axs[1].set_xlabel("Propagated local x (mm)")
-    rotation_axs[1].set_ylabel("Propagated local y (mm)")
+    rotation_ax_2d.text(
+        0.9, 0.9,
+        f"$\\theta = {rotation_angle:1.2f} \pm {rotation_angle_err:1.2f}$ mrad\n"+\
+        f"$y = {correction_y:1.2f} \pm {err_y:1.2f}$ mm",
+        transform=rotation_ax_2d.transAxes,
+        ha="right", va="top", linespacing=2
+    )
+    #hep.cms.text(text="Preliminary", ax=rotation_ax_2d)
 
-    rotation_fig.savefig(odir/"rotation.png")
+    rotation_ax_1d.hist(
+        prophits_y_multiple, bins=80,
+        range=rotation_range[1],
+        histtype="stepfilled", facecolor="none", edgecolor="black", linewidth=3
+    )
+    binning = (rotation_range[1][1]-rotation_range[1][0])/80
+    rotation_ax_1d.set_xlabel("Propagated y (mm)")
+    rotation_ax_1d.set_ylabel(f"Entries / {binning*1e3:1.0f} µm")
+
+    rotation_fig_2d.savefig(odir/"rotation_2d.pdf")
+    rotation_fig_1d.savefig(odir/"rotation_1d.pdf")
 
 def main():
     parser = argparse.ArgumentParser()
@@ -155,13 +196,14 @@ def main():
     parser.add_argument("--chamber", type=int, default=4, help="Tested chamber (default 4, i.e. GE2/1)")
     parser.add_argument("--rotation", action="store_true", help="Determine rotation corrections")
     parser.add_argument("--alignment", type=float, nargs="+", default=[0, 0, 0], help="x, y, angle")
+    parser.add_argument("--save-angle", type=float)
+    parser.add_argument("--scan", type=pathlib.Path, help="Output scan file")
     args = parser.parse_args()
     
     os.makedirs(args.odir, exist_ok=True)
 
     with uproot.open(args.ifile) as track_file:
         track_tree = track_file["trackTree"]
-        if args.verbose: track_tree.show()
 
         print("Reading tree...")
         # 1D branches:
@@ -172,7 +214,6 @@ def main():
         prophits_chamber = track_tree["prophitChamber"].array(entry_stop=args.events)
         prophits_eta = track_tree["prophitEta"].array(entry_stop=args.events)
         rechits_eta = track_tree["rechitEta"].array(entry_stop=args.events)
-        #prophits_eta = track_tree["prophitEta"].array(entry_stop=args.events)
         rechits_x = track_tree["rechitGlobalX"].array(entry_stop=args.events)
         rechits_y = track_tree["rechitGlobalY"].array(entry_stop=args.events)
         rechits_local_x = track_tree["rechitLocalX"].array(entry_stop=args.events)
@@ -193,8 +234,11 @@ def main():
         prophits_r = track_tree["prophitLocalR"].array(entry_stop=args.events)
         prophits_phi = track_tree["prophitLocalPhi"].array(entry_stop=args.events)
 
-        mask_chi2 = (track_x_chi2>0.1)&(track_x_chi2<2)&(track_y_chi2>0.1)&(track_y_chi2<2)
+        #mask_chi2 = (track_x_chi2>0.000000001)&(track_x_chi2<20)&(track_y_chi2>0.000000001)&(track_y_chi2<20)
+        #mask_chi2 = (track_x_chi2>0.1)&(track_x_chi2<20)&(track_y_chi2>0.1)&(track_y_chi2<20)
         #mask_chi2 = (track_x_chi2>0.)&(track_y_chi2>0.)
+        track_chi2 = (track_x_chi2*2 + track_y_chi2*2)/4
+        mask_chi2 = (track_chi2>0.2)&(track_chi2<10)
         rechits_chamber = rechits_chamber[mask_chi2]
         prophits_chamber = prophits_chamber[mask_chi2]
         rechits_eta = rechits_eta[mask_chi2]
@@ -209,6 +253,7 @@ def main():
         prophits_local_x, prophits_local_y = prophits_local_x[mask_chi2], prophits_local_y[mask_chi2]
         track_intercept_x, track_intercept_y = track_intercept_x[mask_chi2], track_intercept_y[mask_chi2]
         track_x_chi2, track_y_chi2 = track_x_chi2[mask_chi2], track_y_chi2[mask_chi2]
+        track_chi2 = track_chi2[mask_chi2]
         rechits_r, prophits_r = rechits_r[mask_chi2], prophits_r[mask_chi2]
         rechits_phi, prophits_phi = rechits_phi[mask_chi2], prophits_phi[mask_chi2]
 
@@ -232,7 +277,8 @@ def main():
         eta_fig.savefig(args.odir / "eta.png")
 
         """ Choose only events within a (-50,50) mm window """
-        prophit_window_mask = (abs(prophits_x)<50)&(abs(prophits_y)<50)
+        prophit_window_mask = (abs(prophits_x)<500)&(abs(prophits_y)<500)
+        #prophit_window_mask = (prophit_window_mask)&(ak.max(rechits_cluster_size, axis=1)<=2)
         #prophit_window_mask = (abs(prophits_x)<100)&(abs(prophits_y)<100)
         #prophit_window_mask = (abs(prophits_x)<1000)&(abs(prophits_y)<1000)
         prophits_x, prophits_y = prophits_x[prophit_window_mask], prophits_y[prophit_window_mask]
@@ -251,6 +297,10 @@ def main():
         residuals_global_x, residuals_global_y = prophits_x-rechits_x, prophits_y-rechits_y
         residuals_x, residuals_y = prophits_local_x-rechits_local_x, prophits_local_y-rechits_local_y
         residuals_r, residuals_phi = prophits_r-rechits_r, prophits_phi-rechits_phi
+
+        coarse_good, coarse_trigs = ak.count_nonzero(ak.count(rechits_x, axis=1)), ak.num(prophits_x, axis=0)
+        coarse_efficiency = coarse_good / coarse_trigs
+        print("Coarse efficiency {0:1.3f} ({1} events with hits over {2} events)".format(coarse_efficiency, coarse_good, coarse_trigs))
 
         if args.verbose:
             print("track intercept x:", track_intercept_x)
@@ -286,9 +336,17 @@ def main():
         print("All chi2:", track_allchi2)
         #chi2_ax.hist(track_x_chi2, color="green", label="$χ^2_x$", alpha=0.5, range=chi2_range, bins=chi2_bins)
         #chi2_ax.hist(track_y_chi2, color="blue", label="$χ^2_y$", alpha=0.5, range=chi2_range, bins=chi2_bins)
-        chi2_ax.hist(track_x_chi2+track_y_chi2, color="purple", label="best track $χ^2$", alpha=0.5, range=chi2_range, bins=chi2_bins)
-        chi2_ax.hist(ak.flatten(track_allchi2), color="red", label="discarded track $χ^2$", alpha=0.5, range=chi2_range, bins=chi2_bins)
-        chi2_ax.set_xlabel("reduced $χ^2$")
+        chi2_ax.hist(track_chi2, color="blue", label="Best track $χ^2$", histtype="step", linewidth=2, range=chi2_range, bins=chi2_bins)
+        chi2_ax.hist(ak.flatten(track_allchi2/2), color="red", label="Discarded track $χ^2$", histtype="step", linewidth=2, range=chi2_range, bins=chi2_bins)
+        hep.cms.text("Muon Preliminary", ax=chi2_ax)
+        chi2_ax.text(
+            1., 1.,
+            "ME0 GIF++ test beam",
+            weight="bold",
+            va="bottom", ha="right", size=30,
+            transform=chi2_ax.transAxes
+        )
+        chi2_ax.set_xlabel("Reduced $χ^2$")
         #chi2_ax.set_yscale("log")
         chi2_ax.legend()
         chi2_fig.savefig(args.odir / "chi2.png")
@@ -316,10 +374,10 @@ def main():
         occupancy_cls_fig, occupancy_cls_ax = plt.subplots(figsize=(12,9))
         #single_hit_mask = ak.count(rechits_x, axis=1)==1
         h, x, y, img = occupancy_cls_ax.hist2d(
-            np.array(ak.flatten(rechits_x)),
+            np.array(ak.flatten(residuals_x)),
             np.array(ak.flatten(rechits_cluster_size)),
-            range=((-100, 100), (0, 10)),
-            bins=40
+            range=((-10, 10), (0, 10)),
+            bins=100
         )
         occupancy_cls_ax.set_xlabel("Rechit x")
         occupancy_cls_ax.set_ylabel("Cluster size")
@@ -349,6 +407,7 @@ def main():
 
         hits_fig, hits_axs = plt.subplots(nrows=2, ncols=2, figsize=(24,18))
         residual_fig, residual_axs = plt.subplots(nrows=2, ncols=1, figsize=(12,18))
+        cluster_size_fig, cluster_size_axs = plt.figure(figsize=(12,9)), plt.axes()
         residual_rechit_fig, residual_rechit_axs = plt.subplots(nrows=2, ncols=2, figsize=(24,18))
         residual_prophit_fig, residual_prophit_axs = plt.subplots(nrows=2, ncols=2, figsize=(22,18))
         rechit_prophit_fig, rechit_prophit_axs = plt.subplots(nrows=2, ncols=2, figsize=(24,18))
@@ -406,30 +465,18 @@ def main():
         #residual_fig, residual_axs = plt.subplots(ncols=len(etas), nrows=1, figsize=(12*len(etas),9))
         residual_fig, residual_ax = plt.figure(figsize=(12,9)), plt.axes()
 
-        residuals_range, residuals_bins = (-50, 50), 100
+        residuals_range, residuals_bins = (-40, 40), 100
         residuals_binning = (residuals_range[1]-residuals_range[0])/residuals_bins
 
-        efficiency_tuples = list()
-        #residuals_eta = residuals_x[rechits_eta==eta]
-
-
-        """if eta==1:
-            #Write efficiency to csv file
-            run_df = pd.read_csv("/home/gempro/testbeam/july2022/runs/runs.csv")
-            run_number = int(args.ifile.stem)
-            run_df[run_df["Run"]==run_number]["ME0 efficiency"] = efficiency
-            print(run_df)
-            run_df.to_csv("/home/gempro/testbeam/july2022/runs/runs.csv", index=False, sep=",")"""
-
-        #for ieta,eta in enumerate(etas):
-        #print("eta =", eta)
-        #residuals_filter = rechits_eta==eta
-        residuals_filter = (residuals_x>residuals_range[0])&(residuals_x<residuals_range[1])
+        residuals_filter = (residuals_x>residuals_range[0])&(residuals_x<residuals_range[1])#&(rechits_eta==2)
+        print("Residual filter:", residuals_filter)
         residuals_eta = residuals_x[residuals_filter]
-        #print("Residuals eta", eta, residuals_eta)
-        rechits_eta = rechits_eta[residuals_filter]
+        #rechits_eta = rechits_eta[residuals_filter]
 
         residuals_eta_flat = ak.flatten(residuals_eta)
+        #residuals_min_filter = ak.argmin(abs(residuals_eta), axis=1, keepdims=True)
+        #residuals_eta_flat = residuals_eta[residuals_min_filter]
+        print("Flat residuals for histogram:", residuals_eta_flat)
         #residuals_eta_flat = ak.flatten(residuals_x)
         points, bins, _ = residual_ax.hist(
             residuals_eta_flat,
@@ -438,6 +485,7 @@ def main():
             edgecolor="k"#, label=f"$\eta={eta:0.0f}$"
         )
         bins = bins[:-1]+ 0.5*(bins[1:] - bins[:-1])
+
         
         # gaussian fit
         gauss_with_background = lambda x,A,mu,sigma,m,q: gauss(x,A,mu,sigma) + m*x+q
@@ -454,7 +502,6 @@ def main():
             coeff, var_matrix = curve_fit(gauss_with_background, bins, points, p0=coeff)
             print("Final residual fit parameters:", coeff)
             perr = np.sqrt(np.diag(var_matrix))
-            pass
         except RuntimeError:
             print("Fit failed, using RMS instead...")
 
@@ -464,22 +511,95 @@ def main():
         space_resolution, err_space_resolution = 1e3*coeff[2], 1e3*perr[2]
         #print(f"Space resolution for eta {eta}: {space_resolution:1.1f} +/- {err_space_resolution:1.1f}")
         print(f"Space resolution: {space_resolution:1.1f} +/- {err_space_resolution:1.1f}")
+        if args.save_angle:
+            angle_path = args.odir / "angle_corrections.csv"
+            if not os.path.isfile(angle_path):
+                with open(angle_path, "w") as angle_file:
+                    angle_file.write("angle;space_resolution;err_space_resolution\n")
+            with open(angle_path, "a") as angle_file:
+                angle_file.write(f"{args.save_angle};{space_resolution};{err_space_resolution}\n")
+            print("Space resolution for angle", args.save_angle, "saved to", angle_path)
 
-        #mean_residual = ak.mean(residuals_eta_flat)
         mean_residual = coeff[1]
-        residual_cut = 2.5 * coeff[2] # cut on 1 mm ~ 2 x measured residual sigma
-        mask_track_matching = abs(residuals_eta - mean_residual) < residual_cut
+        residual_cut = 2.2 * abs(coeff[2]) # cut on 1 mm ~ 2 x measured residual sigma
+        mask_track_matching = abs(residuals_x - mean_residual) < abs(residual_cut)
+
+        A = ak.count_nonzero(abs(residuals_eta_flat-mean_residual)<abs(residual_cut))
+        A1 = ak.count_nonzero(ak.count_nonzero(mask_track_matching, axis=1)>0)
+        #print("Magic number:", A/A1)
+        B = ak.count_nonzero(abs(residuals_eta_flat-mean_residual-30)<abs(residual_cut))
+
+        mask_track_matching = abs(residuals_eta_flat - mean_residual) < abs(residual_cut)
+        has_track_matching = ak.count_nonzero(mask_track_matching)
+        n_triggers = ak.num(prophits_x, axis=0)
+
+        stat_efficiency = (A-B)/n_triggers
+        try:
+            err_stat_efficiency = stat_efficiency * (1/(A-B) + 1/n_triggers)**0.5
+        except ZeroDivisionError: err_stat_efficiency = -1
+        print(f"A {A}, B {B}, N {n_triggers}")
+        print(f"Statistical efficiency: {stat_efficiency} +- {err_stat_efficiency}")
+
+        """ Plot efficiency vs residual cut """
+        efficiency_fig, efficiency_ax = plt.figure(figsize=(12,9)), plt.axes()
+        efficiency_cuts = np.arange(0.25, 5, 0.25)
+        #residuals_cls1 = residuals_x[rechits_cluster_size<2]
+        efficiencies_with_error = [
+            get_efficiency(residuals_x, mean_residual, coeff[2]*cut)
+            for cut in efficiency_cuts
+        ]
+        efficiencies = [ el[0] for el in efficiencies_with_error ]
+        err_efficiencies = [ el[1] for el in efficiencies_with_error ]
+        efficiency_ax.errorbar(efficiency_cuts, efficiencies, err_efficiencies, fmt="o", color="black")
+        efficiency_ax.plot(efficiency_cuts, [coarse_efficiency]*len(efficiency_cuts), "--", color="red")
+        efficiency_ax.set_xlabel("Residual cut / residual $\sigma$")
+        efficiency_ax.set_ylabel("Measured efficiency")
+        efficiency_fig.savefig(args.odir / "efficiency.png")
+        efficiency_fig.savefig(args.odir / "efficiency.pdf")
+
+        """ Plot cluster size with track matching """
+        cluster_size_matching = abs(residuals_x - mean_residual) < abs(residual_cut)
+        cluster_size_background = rechits_cluster_size[~cluster_size_matching]
+        cluster_size_muon = rechits_cluster_size[cluster_size_matching]
+        mean_cls_muon = ak.mean(cluster_size_muon, axis=None)
+        err_cls_muon = ak.std(cluster_size_muon, axis=None) / ak.count(cluster_size_muon, axis=None)**0.5
+        mean_cls_bkg = ak.mean(cluster_size_background, axis=None)
+        err_cls_bkg = ak.std(cluster_size_background, axis=None) / ak.count(cluster_size_background, axis=None)**0.5
+        print("Muon cls {0:1.2f} ± {1:1.2f}".format(mean_cls_muon, err_cls_muon))
+        print("Background cls {0:1.2f} ± {1:1.2f}".format(mean_cls_bkg, err_cls_bkg))
+        
+        cls_bins, cls_range = 15, (0.5,15.5)
+        cluster_size_axs.hist(
+            ak.flatten(cluster_size_background),
+            bins=cls_bins, range=cls_range, density=True,
+            histtype="step", color="red", edgecolor="red", linewidth=2,
+            label="Background - average {0:1.2f} ± {1:1.2f}".format(mean_cls_bkg, err_cls_bkg)
+        )
+        cluster_size_axs.hist(
+            ak.flatten(cluster_size_muon),
+            bins=cls_bins, range=cls_range, density=True,
+            histtype="step", color="blue", edgecolor="blue", linewidth=2,
+            label="Muon - average {0:1.2f} ± {1:1.2f}".format(mean_cls_muon, err_cls_muon)
+        )
+        cluster_size_axs.set_xlabel("Cluster size")
+        cluster_size_axs.set_ylabel("Events")
+        hep.cms.text("Muon Preliminary", ax=cluster_size_axs)
+        cluster_size_axs.text(
+            1., 1.,
+            "ME0 GIF++ test beam",
+            weight="bold",
+            va="bottom", ha="right", size=30,
+            transform=cluster_size_axs.transAxes
+        )
+        cluster_size_axs.legend()
         
         print("Residual - mean:", abs(residuals_eta - mean_residual))
         print("Matching tracks:", mask_track_matching)
-        has_track_matching = ak.count_nonzero(mask_track_matching, axis=1)
-        print(has_track_matching)
-        n_good_events = ak.count_nonzero(has_track_matching)
-        n_triggers = ak.count(has_track_matching)
-        efficiency = n_good_events / n_triggers
-        efficiency_error = efficiency * (1/n_good_events + 1/n_triggers)**0.5
-        print(f"{n_good_events} good events over {n_triggers}: efficiency {efficiency:1.3f} +/- {efficiency_error:1.3f}")
-        efficiency_tuples.append((n_good_events, n_triggers, efficiency))
+
+        n_good_events = ak.count_nonzero(mask_track_matching)
+        n_triggers = ak.count(mask_track_matching)
+        efficiency, err_efficiency = get_efficiency(residuals_x, mean_residual, residual_cut)
+        print(f"{n_good_events} good events over {n_triggers}: efficiency {efficiency:1.3f} +/- {err_efficiency:1.3f}")
 
         xvalues = np.linspace(bins[0], bins[-1], 1000)
         residual_ax.plot(xvalues, gauss_with_background(xvalues, *coeff), color="red", linewidth=2)
@@ -507,6 +627,8 @@ def main():
             # residuals = residuals[np.arange(ak.num(residuals, axis=0)),min_residual_mask]
             # rechits = rechits[np.arange(ak.num(rechits, axis=0)),min_residual_mask]
 
+            print("eta", rechits_eta, ak.num(rechits_eta, axis=0))
+            print(direction, rechits, ak.num(rechits, axis=0))
             for eta in np.unique(ak.flatten(rechits_eta)):
                 hits_axs[idirection][0].hist(
                     ak.flatten(rechits[rechits_eta==eta]),
@@ -666,6 +788,36 @@ def main():
 
         residual_prophit_fig.tight_layout()
         residual_prophit_fig.savefig(args.odir/"residuals_prophits.png")
+
+        cluster_size_fig.savefig(args.odir/"cluster_size_background.png")
+
+        """ Save to scan csv file """
+        if args.scan:
+            run_number = int(args.ifile.stem)
+            print("Run number:", run_number)
+
+            columns = ["run", "efficiency", "err_efficiency", "stat_efficiency", "err_stat_efficiency", "space_resolution", "err_space_resolution", "cls_muon", "err_cls_muon", "cls_bkg", "err_cls_bkg"]
+            values = [run_number, efficiency, err_efficiency, stat_efficiency, err_stat_efficiency, space_resolution, err_space_resolution, mean_cls_muon, err_cls_muon, mean_cls_bkg, err_cls_bkg]
+            #values = [run_number, stat_efficiency, err_stat_efficiency, space_resolution, err_space_resolution, mean_cls_muon, err_cls_muon, mean_cls_bkg, err_cls_bkg]
+
+            try:
+                scan_df = pd.read_csv(args.scan)
+                if run_number in scan_df["run"].values:
+                    print(f"Run {run_number} already in scan, updating...")
+                    for col, val in zip(columns, values):
+                        scan_df.loc[scan_df["run"]==run_number, col] = val
+                else:
+                    scan_df = scan_df.append({
+                        col: val for col, val in zip(columns, values)
+                    }, ignore_index=True)
+            except FileNotFoundError:
+                print("Scan file does not exist, creating it...")
+                os.makedirs(args.scan.parent, exist_ok=True)
+                scan_df = pd.DataFrame([values], columns=columns)
+
+            scan_df.to_csv(args.scan, index=False)
+            print("Scan file saved to", args.scan)
+
 
         """ Look at polar coordinates """
 

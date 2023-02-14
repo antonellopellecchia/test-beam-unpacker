@@ -1,0 +1,15 @@
+#!/bin/bash
+
+run_number=$1
+angle_min=$2
+angle_max=$3
+angle_step=$4
+
+#for (( angle=$angle_min; angle<=$angle_max; angle+=$angle_step))
+for angle in $(seq $angle_min $angle_step $angle_max) 
+do
+    python3 ../analysis/utils/set_angular_correction.py geometry/july2022.csv geometry/july2022.csv $angle
+    ./Tracking /mnt/bigdisk/runs/july2022/rechits/$run_number.root /mnt/bigdisk/runs/july2022/tracks/$run_number.root --geometry july2022
+    python3 analysis/ge21.py /mnt/bigdisk/runs/july2022/tracks/$run_number.root /eos/user/a/apellecc/www/gem/testbeam/july2022/analysis/$run_number/me0_blank/ --chamber 3 --verbose --save-angle $angle
+done
+

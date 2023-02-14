@@ -27,3 +27,11 @@ Tracking rechits.raw tracks.root [n_events]
 ```
 
 Analysis: look at python scripts in the `analysis` folder.
+
+### Utilities:
+
+How to generate a mapping for the tracker:
+```bash
+python3 mapping/generate.py --connector ../mapping/res/panasonic.csv --geometry ../mapping/july2022/template.csv tracker_mapping.csv
+```
+where the `geometry` parameter is a csv file containing the mapping from VFAT position to the position in the corresponding chamber and eta partition.
