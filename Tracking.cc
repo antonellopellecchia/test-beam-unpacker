@@ -227,6 +227,7 @@ int main (int argc, char** argv) {
     std::vector<double> rechitsGlobalX;
     std::vector<double> rechitsGlobalY;
     std::vector<double> rechitsClusterSize;
+    std::vector<double> rechitsClusterCenter;
     std::vector<double> prophitsEta;
     std::vector<double> prophitsGlobalX;
     std::vector<double> prophitsGlobalY;
@@ -284,7 +285,7 @@ int main (int argc, char** argv) {
     trackTree.Branch("rechitChamber", &rechitsChamber);
     trackTree.Branch("prophitChamber", &prophitsChamber);
     trackTree.Branch("rechitEta", &rechitsEta);
-    trackTree.Branch("rechitClusterCenter", vecClusterCenter);
+    //trackTree.Branch("rechitClusterCenter", vecClusterCenter);
     trackTree.Branch("rechitDigiStrip", vecDigiStrip);
     trackTree.Branch("rechitRawChannel", vecRawChannel);
     trackTree.Branch("rechitLocalX", &rechitsLocalX);
@@ -294,6 +295,7 @@ int main (int argc, char** argv) {
     trackTree.Branch("rechitGlobalX", &rechitsGlobalX);
     trackTree.Branch("rechitGlobalY", &rechitsGlobalY);
     trackTree.Branch("rechitClusterSize", &rechitsClusterSize);
+    trackTree.Branch("rechitClusterCenter", &rechitsClusterCenter);
     trackTree.Branch("prophitEta", &prophitsEta);
     trackTree.Branch("prophitGlobalX", &prophitsGlobalX);
     trackTree.Branch("prophitGlobalY", &prophitsGlobalY);
@@ -311,7 +313,7 @@ int main (int argc, char** argv) {
     Hit hit;
 
     int nentries = rechitTree->GetEntries();
-    int nentriesGolden = 0, nentriesNice = 0;
+    int nentriesGolden = 0, nentriesNice = 0, nentriesSaved = 0;
     // support array to exclude events with more than one hit per tracker:
     std::vector<double> hitsPerTrackingChamber(nTrackers);
 
@@ -362,6 +364,7 @@ int main (int argc, char** argv) {
       rechitsLocalR.clear();
       rechitsLocalPhi.clear();
       rechitsClusterSize.clear();
+      rechitsClusterCenter.clear();
       prophitsEta.clear();
       prophitsGlobalX.clear();
       prophitsGlobalY.clear();
@@ -471,13 +474,17 @@ int main (int argc, char** argv) {
       std::set<int> chambersUniqueSet(vecRechit2DChamber->begin(), vecRechit2DChamber->end());
       std::vector<int> chambersUnique(chambersUniqueSet.begin(), chambersUniqueSet.end());
       int nChambersInEvent = chambersUnique.size();
-      if (nChambersInEvent < 3) continue;
       if (verbose) {
           std::cout << "  There are " << nChambersInEvent << " trackers in the event: [";
           for (auto c:chambersUnique) std::cout << " " << c;
           std::cout << " ]" << std::endl;
       }
-
+      if (nChambersInEvent < 3) {
+          if (verbose) {
+              std::cout << "  Not enough trackers, skipping event..." << std::endl;
+          }
+          continue;
+      }
       // Divide the rechit indices in one vector per chamber:
       std::vector<std::vector<int>> rechitIndicesPerChamber(nChambersInEvent);
       for (int i=0; i<vecRechit2DChamber->size(); i++) {
@@ -501,10 +508,10 @@ int main (int argc, char** argv) {
       // Skip event if too many spurious hits:
       int nPossibleTracks = 1;
       for (auto el:rechitIndicesPerChamber) nPossibleTracks *= el.size();
-      if (nPossibleTracks > 50) continue;
       if (verbose) {
           std::cout << "    There are " << nPossibleTracks << " possible tracks in the event..." << std::endl;
       }
+      if (nPossibleTracks > 50) continue;
 
       /* Create all possible rechit combinations per tracker
        * using "odometer" method:
@@ -633,6 +640,7 @@ int main (int argc, char** argv) {
         rechitsGlobalX.push_back(hit.getGlobalX());
         rechitsGlobalY.push_back(hit.getGlobalY());
         rechitsClusterSize.push_back(vecRechitClusterSize->at(iRechit));
+        rechitsClusterCenter.push_back(vecClusterCenter->at(iRechit));
         if (verbose) {
           std::cout << "    " << "rechit  " << "eta=" << vecRechitEta->at(iRechit) << ", ";
           std::cout << "global carthesian (" << rechitsGlobalX.back() << "," << rechitsGlobalY.back() << "), ";
@@ -643,9 +651,11 @@ int main (int argc, char** argv) {
       }
 
       trackTree.Fill();
+      nentriesSaved++;
     }
     std::cout << std::endl;
     std::cout << "Nice entries " << nentriesNice << std::endl;
+    std::cout << "Saved entries " << nentriesSaved << std::endl;
 
     trackTree.Write();
     trackFile.Close();
