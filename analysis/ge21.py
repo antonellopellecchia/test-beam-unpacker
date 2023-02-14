@@ -42,7 +42,10 @@ def get_efficiency(residuals, mean_residual, cut):
     n_triggers = ak.num(residuals, axis=0)
 
     stat_efficiency = (A-B)/n_triggers
-    err_stat_efficiency = stat_efficiency * (1/(A-B) + 1/n_triggers)**0.5
+    try: 
+        err_stat_efficiency = stat_efficiency * (1/(A-B) + 1/n_triggers)**0.5
+    except ZeroDivisionError:
+        err_stat_efficiency = -1
 
     return stat_efficiency, err_stat_efficiency
 
@@ -111,58 +114,71 @@ def analyze_rotation(prophits, rechits, eta, odir):
     prophits_x_multiple = ak.to_numpy(prophits_x_multiple[~ak.is_none(prophits_x_multiple)])
     prophits_y_multiple = ak.to_numpy(prophits_y_multiple[~ak.is_none(prophits_y_multiple)])
     
-    rotation_bins=(80,80)
-    rotation_range=((-25,25),(-10,10))
+    rotation_bins=(50,50)
+    rotation_range=((-40,40),(10,30))
+    rotation_middle = 0.5*(rotation_range[1][0]+rotation_range[1][1])
+    prophits_mask = abs(prophits_y_multiple-rotation_middle) < 4
 
     """ Plot propagated positions only for multiple eta fired """
-    rotation_fig, rotation_axs = plt.subplots(nrows=1, ncols=3, figsize=(39,9)) 
-    rotation_axs[0].hist2d(
+    rotation_fig_2d, rotation_ax_2d = plt.subplots(figsize=(14,9)) 
+    rotation_fig_1d, rotation_ax_1d = plt.subplots(figsize=(12,9)) 
+    h, x, y, rotation_img = rotation_ax_2d.hist2d(
         prophits_x_multiple, prophits_y_multiple,
-        bins=rotation_bins, range=rotation_range # cut away pillar
+        bins=rotation_bins, range=rotation_range, 
+        cmap="Purples"
     )
+    rotation_fig_2d.colorbar(rotation_img, ax=rotation_ax_2d, label="Entries")
+    rotation_ax_2d.set_xlabel("Propagated x (mm)")
+    rotation_ax_2d.set_ylabel("Propagated y (mm)")
 
-    rotation_axs[0].set_xlabel("Propagated x (mm)")
-    rotation_axs[0].set_ylabel("Propagated y (mm)")
-
-    rotation_axs[2].hist(
-        prophits_y_multiple, bins=80,
-        range=(-5,5),
-        histtype="stepfilled", facecolor="none", edgecolor="black", linewidth=2
-    )
-    rotation_axs[2].set_xlabel("Propagated y (mm)")
-
-    prophits_mask = (prophits_y_multiple>-4)&(prophits_y_multiple<2)
+    #prophits_mask = (prophits_y_multiple>-4)&(prophits_y_multiple<2)
+    #prophits_mask = (prophits_y_multiple < rotation_range[1][0])&(prophits_y_multiple < rotation_range[1][1])
 
     """ Plot with statistics """
-    y_means, x_edges, _ = scipy.stats.binned_statistic(prophits_x_multiple[prophits_mask], prophits_y_multiple[prophits_mask], "mean", bins=20, range=rotation_range[0])
-    y_std, x_edges, _ = scipy.stats.binned_statistic(prophits_x_multiple[prophits_mask], prophits_y_multiple[prophits_mask], "std", bins=20, range=rotation_range[0])
-    y_count, x_edges, _ = scipy.stats.binned_statistic(prophits_x_multiple[prophits_mask], prophits_y_multiple[prophits_mask], "count", bins=20, range=rotation_range[0])
+    y_means, x_edges, _ = scipy.stats.binned_statistic(prophits_x_multiple[prophits_mask], prophits_y_multiple[prophits_mask], "mean", bins=10, range=rotation_range[0])
+    y_std, x_edges, _ = scipy.stats.binned_statistic(prophits_x_multiple[prophits_mask], prophits_y_multiple[prophits_mask], "std", bins=10, range=rotation_range[0])
+    y_count, x_edges, _ = scipy.stats.binned_statistic(prophits_x_multiple[prophits_mask], prophits_y_multiple[prophits_mask], "count", bins=10, range=rotation_range[0])
     x_bins = 0.5 * (x_edges[1:] + x_edges[:-1])
 
     """ Fit to extract rotation """
-    rotation_opt, rotation_cov = curve_fit(linear_function, x_bins, y_means, sigma=y_std/np.sqrt(y_count), p0=[0., -0.1])
+    #rotation_opt, rotation_cov = curve_fit(linear_function, x_bins, y_means, sigma=y_std/np.sqrt(y_count), p0=[0., -0.1])
+    rotation_opt, rotation_cov = curve_fit(linear_function, prophits_x_multiple[prophits_mask], prophits_y_multiple[prophits_mask], p0=[0., -0.1])
     correction_y, rotation_slope = rotation_opt
     err_y, err_m = np.sqrt(np.diag(rotation_cov))
     rotation_angle = np.arctan(rotation_slope)*1e3
     rotation_angle_err = err_m/(1+rotation_angle**2)*1e3
-    correction_y = 689.4123 - correction_y
+    #correction_y = 689.4123 - correction_y
     
     print(f"Rotation: {rotation_angle:1.2f} ± {rotation_angle_err:1.2f} mrad")
     print(f"y correction: {correction_y:1.2f} ± {err_y:1.2f} mm")
     
-    rotation_axs[1].errorbar(x_bins, y_means, yerr=y_std/np.sqrt(y_count), fmt=".k")
-    rotation_axs[1].plot(
+    #rotation_ax_1d.errorbar(x_bins, y_means, yerr=y_std/np.sqrt(y_count), fmt=".k")
+    #rotation_ax_1d.scatter(prophits_x_multiple[prophits_mask], prophits_y_multiple[prophits_mask]) 
+    rotation_ax_2d.plot(
             x_bins, linear_function(x_bins, *rotation_opt),
-            label=f"$\\theta = {rotation_angle:1.2f} \pm {rotation_angle_err:1.2f}$ mrad",
-            color="red"
+            label="fit", color="red"
+            #label=f"$\\theta = {rotation_angle:1.2f} \pm {rotation_angle_err:1.2f}$ mrad",
     )
-    rotation_axs[1].legend()
-    #rotation_axs[1].set_ylim(-3, 2)
-    hep.cms.text(text="Preliminary", ax=rotation_axs[1])
-    rotation_axs[1].set_xlabel("Propagated local x (mm)")
-    rotation_axs[1].set_ylabel("Propagated local y (mm)")
+    rotation_ax_2d.text(
+        0.9, 0.9,
+        f"$\\theta = {rotation_angle:1.2f} \pm {rotation_angle_err:1.2f}$ mrad\n"+\
+        f"$y = {correction_y:1.2f} \pm {err_y:1.2f}$ mm",
+        transform=rotation_ax_2d.transAxes,
+        ha="right", va="top", linespacing=2
+    )
+    #hep.cms.text(text="Preliminary", ax=rotation_ax_2d)
 
-    rotation_fig.savefig(odir/"rotation.png")
+    rotation_ax_1d.hist(
+        prophits_y_multiple, bins=80,
+        range=rotation_range[1],
+        histtype="stepfilled", facecolor="none", edgecolor="black", linewidth=3
+    )
+    binning = (rotation_range[1][1]-rotation_range[1][0])/80
+    rotation_ax_1d.set_xlabel("Propagated y (mm)")
+    rotation_ax_1d.set_ylabel(f"Entries / {binning*1e3:1.0f} µm")
+
+    rotation_fig_2d.savefig(odir/"rotation_2d.pdf")
+    rotation_fig_1d.savefig(odir/"rotation_1d.pdf")
 
 def main():
     parser = argparse.ArgumentParser()
@@ -497,7 +513,7 @@ def main():
 
         A = ak.count_nonzero(abs(residuals_eta_flat-mean_residual)<abs(residual_cut))
         A1 = ak.count_nonzero(ak.count_nonzero(mask_track_matching, axis=1)>0)
-        print("Magic number:", A/A1)
+        #print("Magic number:", A/A1)
         B = ak.count_nonzero(abs(residuals_eta_flat-mean_residual-30)<abs(residual_cut))
 
         mask_track_matching = abs(residuals_eta_flat - mean_residual) < abs(residual_cut)
@@ -505,7 +521,9 @@ def main():
         n_triggers = ak.num(prophits_x, axis=0)
 
         stat_efficiency = (A-B)/n_triggers
-        err_stat_efficiency = stat_efficiency * (1/(A-B) + 1/n_triggers)**0.5
+        try:
+            err_stat_efficiency = stat_efficiency * (1/(A-B) + 1/n_triggers)**0.5
+        except ZeroDivisionError: err_stat_efficiency = -1
         print(f"A {A}, B {B}, N {n_triggers}")
         print(f"Statistical efficiency: {stat_efficiency} +- {err_stat_efficiency}")
 
