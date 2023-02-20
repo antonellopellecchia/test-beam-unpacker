@@ -402,9 +402,10 @@ class AMCEvent
       m_isExtTrig = 0x1 & (word >> 54);
       m_isCurrentPulse = 0x1 & (word >> 53);
       m_CFG_CAL_DAC = 0xff & (word >> 45);
-      m_PULSE_STRETCH = (int) (0x07 & (word >> 42));/* 3 bit */
+      //m_PULSE_STRETCH = (int) (0x07 & (word >> 42));/* 3 bit */
       //std::cout << "ps " << (0x07 & (word >> 42)) << std::endl;
       //m_RunParameter = 0x03ff & (word >> 32); //word >> 32;          /*!Run Param 3 */
+      //std::cout << "rp " << (0xffffff  & (word >> 32)) << std::endl; 
       m_Onum = word >> 16;            /*!Orbit Number */
       m_BID = word;                   /*!Board ID */
       //std::cout << "OC " << m_Onum << std::endl;
@@ -430,7 +431,8 @@ class AMCEvent
     {
       m_ChamT = 0x00ffffff & (word >> 40);  /*!Chamber Timeout*/
       m_OOSG = 0b00000001 & (word >> 39);   /*!OOS GLIB*/
-      m_RunParameter = 0x03ff & (word >> 8); 
+      m_RunParameter = 0x03ff & (word >> 8);
+      m_PULSE_STRETCH = (int) (0x07 & (word >> 18));
     }
 
     //!Reads the word for the AMC Trailer

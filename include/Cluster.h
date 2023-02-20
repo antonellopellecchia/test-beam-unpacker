@@ -9,11 +9,11 @@ class Cluster {
 
     public:
 
-        int fChamber, fEta;
+        int fChamber, fEta, fVFAT;
         int fFirst, fLast;
 
         Cluster() {}
-        Cluster(int chamber, int eta, int first, int last);
+        Cluster(int chamber, int eta, int first, int last, int vfat=99);
 
         bool isNeighbour(int strip);
         void extend(int strip);
@@ -25,6 +25,7 @@ class Cluster {
         int getFirst();
         int getLast();
         int getDirection();
+        int getVFAT();
 
         static std::vector<Cluster> fromDigis(std::vector<Digi> digis);
     

@@ -4,11 +4,12 @@
 #include "Cluster.h"
 #include "Digi.h"
 
-Cluster::Cluster(int chamber, int eta, int first, int last) {
+Cluster::Cluster(int chamber, int eta, int first, int last, int vfat) {
     fChamber = chamber;
     fEta = eta;
     fFirst = first;
     fLast = last;
+    fVFAT = vfat;
 }
 
 bool Cluster::isNeighbour(int strip) {
@@ -37,11 +38,14 @@ int Cluster::getDirection() {
     return (fEta + 1) % 2;
 }
 
+int Cluster::getVFAT() {return fVFAT;}
+
 std::vector<Cluster> Cluster::fromDigis(std::vector<Digi> digis) {
     std::vector<Cluster> clusters;
 
     int chamber;
     int eta;
+    int VFAT;
 
     while (digis.size()>0) {
         Digi digi = digis[0];
@@ -49,9 +53,10 @@ std::vector<Cluster> Cluster::fromDigis(std::vector<Digi> digis) {
         // Map OH, eta to chamber
         chamber = digi.getChamber();
         eta = digi.getEta();
+        VFAT = digi.getVFAT();
 
         // Use as seed for cluster:
-        Cluster cluster = Cluster(chamber, eta, digi.getStrip(), digi.getStrip());
+        Cluster cluster = Cluster(chamber, eta, digi.getStrip(), digi.getStrip(), VFAT);
         digis.erase(digis.begin());
 
         bool clusterUpdated = true;

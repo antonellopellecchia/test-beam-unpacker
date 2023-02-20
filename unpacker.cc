@@ -82,8 +82,8 @@ class GEMUnpacker {
       oh = 0;
 
       std::fread(&m_word, 8, 1, m_files.at(slot));
-      //printf("AMC HEADER1\n");
-      //printf("%016llX\n", m_word);
+      // printf("AMC HEADER1\n");
+      // printf("%016llX\n", m_word);
       m_amcEvent->setAMCheader1(m_word);
       std::fread(&m_word, 8, 1, m_files.at(slot));
       //printf("AMC HEADER2\n");
@@ -93,6 +93,7 @@ class GEMUnpacker {
       m_amcEvent->setGEMeventHeader(m_word);
 
       l1a = m_amcEvent->EC();
+      //std::cout<<"Pulse stretch "<<m_amcEvent->PULSE_STRETCH()<<" "<<std::endl;
       if (checkSyncronization) {
         for (int otherL1A:eventVecL1A) {
           if (l1a!=otherL1A) {
@@ -120,7 +121,7 @@ class GEMUnpacker {
 
       //printf("GEM EVENT HEADER\n");
       //printf("%013llX\n", m_word);
-      // fill the geb data here
+      //fill the geb data here
       //std::cout << "GDcount = " << m_amcEvent->GDcount() << std::endl;
       for (unsigned short j = 0; j < m_amcEvent->GDcount(); j++) {
           GEBdata * m_gebdata = new GEBdata();
@@ -172,11 +173,12 @@ class GEMUnpacker {
                 }
                 continue;
             }
-
+            //std::cout<<"chamber mapping starts"<<std::endl;
             chamber = chamberMapping->to_chamber[slot][oh][vfatId];
             if (stripMappings.count(chamber)==0) continue;
             StripMapping *stripMapping = stripMappings.at(chamber);
             eta = stripMapping->to_eta[vfatId];
+            //std::cout<<"chamber mapping ends"<<std::endl;
 
 
             if (verbose) {
@@ -190,8 +192,10 @@ class GEMUnpacker {
             }
 
             direction = eta%2;
+            //std::cout<<"Plot every channel"<<std::endl;
             for (int i=0;i<64;i++) {
               if (m_vfatdata->lsData() & (1LL << i)) {
+                  //std::cout<<"channel "<<i<<std::endl;
                 vecCh.push_back(i);
                 vecVfat.push_back(vfatId);
                 vecOh.push_back(oh);
@@ -203,6 +207,7 @@ class GEMUnpacker {
                 nhits++;
               }
               if (m_vfatdata->msData() & (1LL << i)) {
+                  //std::cout<<"Second channel "<<i+64<<std::endl;                                                                                                                                        
                 vecCh.push_back(i+64);
                 vecVfat.push_back(vfatId);
                 vecOh.push_back(oh);
@@ -210,7 +215,9 @@ class GEMUnpacker {
                 vecDigiEta.push_back(eta);
                 vecDigiChamber.push_back(chamber);
                 vecDigiDirection.push_back(direction);
+                //std::cout<<"Will the mapping fail?  Slot "<<slot<<",OH "<<oh<<",VFAT "<<vfatId<<std::endl;
                 vecDigiStrip.push_back(stripMapping->to_strip[vfatId][i+64]);
+                //std::cout<<"Mapping too"<<std::endl;
                 nhits++;
               }
             }
@@ -265,7 +272,7 @@ class GEMUnpacker {
 
       while (true) {
         if ((max_events>0) && (n_evt>max_events)) break;
-        if ( (!verbose) && n_evt%1000==0 ) std::cout << "Unpacking event " << n_evt << "         \r";
+        if ( (!verbose) && n_evt%1000==0 ) std::cout << "Unpacking event " << n_evt << "         \r"<<std::endl;
 
         // reset all branch variables:
         nhits=0;
@@ -282,12 +289,17 @@ class GEMUnpacker {
         eventVecL1A.clear();
         // read event from raw:
         if (verbose) std::cout << "Event " << n_evt << std::endl;
+        //std::cout<<"Size "<<m_files.size()<<std::endl;
+
         for (int slot=0; slot<m_files.size(); slot++) {
           // slot == file index. To be improved?
+          //  std::cout<<"Slot "<<slot<<std::endl;
           if (verbose) {
             std::cout << "    File " << m_files.at(slot) << std::endl;
           }
+          //std::cout<<"Start reading event"<<std::endl;
           readStatus = readEvent(slot);
+          //std::cout<<"Stop reading event"<<std::endl;
         }
         if (readStatus<0) break; // end of file
         else if (readStatus==128) {
@@ -368,7 +380,7 @@ int main (int argc, char** argv) {
   
   int max_events = -1;
   int every = 0;
-  std::string geometry = "oct2021";
+  std::string geometry = "me0_stack";
   bool verbose = false;
   bool checkSyncronization = false;
   bool isUnnamed = true;
@@ -392,10 +404,11 @@ int main (int argc, char** argv) {
   std::cout << std::endl;
   std::cout << "ofile " << ofile << std::endl;
 
-  std::cout << "Reading mapping files..." << std::endl;
+  std::cout << "Reading mapping files..." <<geometry<<std::endl;
   std::string mappingBaseDir = "mapping/"+geometry;
   std::map<int, StripMapping*> stripMappings;
   ChamberMapping chamberMapping(mappingBaseDir+"/chamber_mapping.csv");
+
 
   if (geometry=="oct2021" || geometry=="may2022") {
       StripMapping trackerStripMapping(mappingBaseDir+"/tracker_mapping.csv");
@@ -422,6 +435,14 @@ int main (int argc, char** argv) {
         {1, &trackerStripMapping},
         {2, &trackerStripMapping},
         {3, &me0StripMapping},
+      };
+  } else if (geometry=="me0_stack") {
+      StripMapping me0StripMapping(mappingBaseDir+"/me0_mapping.csv");
+      std::cout << "Mapping files ok." << std::endl;
+      stripMappings = {
+          {1, &me0StripMapping},
+          {2, &me0StripMapping},
+          {3, &me0StripMapping},
       };
   } else {
       std::cout << "Error: geometry " << geometry << " not supported yet." << std::endl;

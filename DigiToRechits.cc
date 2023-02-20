@@ -71,6 +71,9 @@ int main (int argc, char** argv) {
       SetupGeometry setupGeometry("geometry/july2022.csv");
       detectorsTracker = setupGeometry.detectorsTracker;
       detectorsLarge = setupGeometry.detectorsLarge;
+  } else if (geometry == "me0_stack") {
+      SetupGeometry setupGeometry("geometry/me0_stack.csv");
+      detectorsLarge = setupGeometry.detectorsLarge;                                                                                                                                                      
   } else {
       std::cout << "Geometry \"" << geometry << "\" not supported." << std::endl;
       return -1;
@@ -86,6 +89,7 @@ int main (int argc, char** argv) {
   std::vector<int> *vecDigiDirection = new std::vector<int>(); // 0 for x, 1 for y
   std::vector<int> *vecDigiStrip = new std::vector<int>(); // 0 to 357
   std::vector<int> *vecRawChannel = new std::vector<int>();
+  std::vector<int> *vecDigiVFAT = new std::vector<int>();
 
   // cluster variables
   int nclusters;
@@ -99,10 +103,12 @@ int main (int argc, char** argv) {
   int nrechits;
   std::vector<int> vecRechitChamber;
   std::vector<int> vecRechitEta;
+  std::vector<int> vecRechitVFAT;
   std::vector<double> vecRechitX;
   std::vector<double> vecRechitY;
   std::vector<double> vecRechitError;
   std::vector<double> vecRechitClusterSize;
+  std::vector<int> vecRechitStrip;
 
   // rechits 2d variables
   int nrechits2d;
@@ -133,6 +139,7 @@ int main (int argc, char** argv) {
   digiTree->SetBranchAddress("digiEta", &vecDigiEta);
   digiTree->SetBranchAddress("digiStrip", &vecDigiStrip);
   digiTree->SetBranchAddress("CH", &vecRawChannel);
+  digiTree->SetBranchAddress("VFAT", &vecDigiVFAT);
   //digiTree->SetBranchAddress("digiDirection", &vecDigiDirection);
 
   // event branches
@@ -152,12 +159,17 @@ int main (int argc, char** argv) {
   rechitTree.Branch("nrechits", &nrechits, "nrechits/I");
   rechitTree.Branch("rawChannel", vecRawChannel);
   rechitTree.Branch("digiStrip", vecDigiStrip);
+  rechitTree.Branch("digiEta", vecDigiEta);
+  rechitTree.Branch("digiChamber", vecDigiChamber);
+  rechitTree.Branch("digiVFAT", vecDigiVFAT);
   rechitTree.Branch("rechitChamber", &vecRechitChamber);
   rechitTree.Branch("rechitEta", &vecRechitEta);
+  rechitTree.Branch("rechitVFAT", &vecRechitVFAT);
   rechitTree.Branch("rechitX", &vecRechitX);
   rechitTree.Branch("rechitY", &vecRechitY);
   rechitTree.Branch("rechitError", &vecRechitError);
   rechitTree.Branch("rechitClusterSize", &vecRechitClusterSize);
+  rechitTree.Branch("rechitStrip", &vecRechitStrip);
 
   // rechit2D branches
   rechitTree.Branch("nrechits2d", &nrechits2d, "nrechits2d/I");
@@ -196,10 +208,12 @@ int main (int argc, char** argv) {
     nrechits = 0;
     vecRechitChamber.clear();
     vecRechitEta.clear();
+    vecRechitVFAT.clear();
     vecRechitX.clear();
     vecRechitY.clear();
     vecRechitError.clear();
     vecRechitClusterSize.clear();
+    vecRechitStrip.clear();
 
     nrechits2d = 0;
     vecRechit2DChamber.clear();
@@ -215,7 +229,8 @@ int main (int argc, char** argv) {
       digisInEvent.push_back(Digi(
         vecDigiChamber->at(ihit),
         vecDigiEta->at(ihit),
-        vecDigiStrip->at(ihit)
+        vecDigiStrip->at(ihit),
+        vecDigiVFAT->at(ihit)
       ));
     clustersInEvent = Cluster::fromDigis(digisInEvent);
 
@@ -237,14 +252,16 @@ int main (int argc, char** argv) {
         }
         // create rechit from cluster on chosen detector:
         for (DetectorLarge detector:detectorsLarge) {
-            if (detector.getChamber() == chamber) rechit = detector.createRechit(clustersInEvent[icluster]);
+            if (detector.getChamber() == (chamber - 1)) rechit = detector.createRechit(clustersInEvent[icluster]);
         }
         vecRechitChamber.push_back(chamber);
         vecRechitEta.push_back(clustersInEvent[icluster].getEta());
+        vecRechitVFAT.push_back(clustersInEvent[icluster].getVFAT());
         vecRechitX.push_back(rechit.getCenter());
         vecRechitY.push_back(rechit.getY());
         vecRechitError.push_back(rechit.getError());
         vecRechitClusterSize.push_back(rechit.getClusterSize());
+        vecRechitStrip.push_back(clustersInEvent[icluster].getFirst());
         nrechits++;
         if (verbose) {
             std::cout << " local (" << rechit.getCenter() << ",";
