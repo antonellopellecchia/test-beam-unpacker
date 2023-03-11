@@ -1,3 +1,5 @@
+> :warning: **This repository is not actively maintained any more**. Please refer to https://gitlab.cern.ch/apellecc/mpgd-analysis.
+
 ### Setting up the environment
 
 ```bash
